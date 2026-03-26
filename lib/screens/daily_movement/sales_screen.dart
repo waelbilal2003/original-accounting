@@ -429,30 +429,31 @@ class _SalesScreenState extends State<SalesScreen> {
 
 // 4. اختيار اقتراح للزبون
   void _selectCustomerSuggestion(String suggestion, int rowIndex) {
-    // التأكد من أن الصف لا يزال موجوداً
     if (rowIndex >= rowControllers.length) return;
 
-    // أولاً: إخفاء نافذة الاقتراحات
     _toggleFullScreenSuggestions(type: 'customer', show: false);
 
-    // ثانياً: تعيين النص في المتحكم
     rowControllers[rowIndex][7].text = suggestion;
 
-    // ثالثاً: تحديث حالة "التغييرات غير المحفوظة" والمتغير الخاص باسم الزبون
     setState(() {
-      customerNames[rowIndex] = suggestion;
+      customerNames[rowIndex] = suggestion; // ✅ حفظ الاسم فوراً
       _hasUnsavedChanges = true;
     });
 
-    // رابعاً: حفظ الزبون في الفهرس
     if (suggestion.trim().length > 1) {
       _saveCustomerToIndex(suggestion);
     }
 
-    // خامساً: فتح نافذة الفوارغ تلقائياً
+    // بعد اختيار الزبون من الاقتراحات → إنشاء صف جديد مباشرة (بدون نافذة فوارغ)
     Future.delayed(const Duration(milliseconds: 100), () {
       if (mounted) {
-        _showEmptiesDialog(rowIndex);
+        _addNewRow();
+        final newRowIndex = rowControllers.length - 1;
+        if (newRowIndex < rowFocusNodes.length &&
+            rowFocusNodes[newRowIndex].isNotEmpty) {
+          FocusScope.of(context).requestFocus(rowFocusNodes[newRowIndex][0]);
+          _scrollToField(newRowIndex, 0);
+        }
       }
     });
   }
@@ -800,39 +801,48 @@ class _SalesScreenState extends State<SalesScreen> {
     if (!_canEditRow(rowIndex)) return;
 
     if (colIndex == 0) {
-      // المادة
       if (_materialSuggestions.isNotEmpty) {
         _selectMaterialSuggestion(_materialSuggestions[0], rowIndex);
         return;
       }
       if (value.trim().length > 1) _saveMaterialToIndex(value);
-      // بعد المادة، ننتقل إلى العدد (index 1)
       if (rowFocusNodes[rowIndex].length > 1) {
         FocusScope.of(context).requestFocus(rowFocusNodes[rowIndex][1]);
       }
     } else if (colIndex == 2) {
-      // العبوة
       if (_packagingSuggestions.isNotEmpty) {
         _selectPackagingSuggestion(_packagingSuggestions[0], rowIndex);
         return;
       }
       if (value.trim().length > 1) _savePackagingToIndex(value);
-      // بعد العبوة، ننتقل إلى القائم (index 3)
       if (rowFocusNodes[rowIndex].length > 3) {
         FocusScope.of(context).requestFocus(rowFocusNodes[rowIndex][3]);
       }
     } else if (colIndex == 5) {
-      // السعر - فتح نافذة نقدي/دين
       _showCashOrDebtDialog(rowIndex);
     } else if (colIndex == 7) {
-      // نقدي أو دين — إنشاء صف جديد
+      // ✅ حفظ اسم الزبون أولاً
+      final customerName = rowControllers[rowIndex][7].text.trim();
+      if (customerName.isNotEmpty) {
+        setState(() {
+          customerNames[rowIndex] = customerName;
+          _hasUnsavedChanges = true;
+        });
+        if (customerName.length > 1) _saveCustomerToIndex(customerName);
+      }
+      // ✅ إنشاء صف جديد مباشرة بدون نافذة فوارغ
       _addNewRow();
       if (rowControllers.isNotEmpty) {
         final newRowIndex = rowControllers.length - 1;
-        if (rowFocusNodes[newRowIndex].isNotEmpty) {
-          // التركيز على حقل المادة في الصف الجديد
-          FocusScope.of(context).requestFocus(rowFocusNodes[newRowIndex][0]);
-        }
+        Future.delayed(const Duration(milliseconds: 50), () {
+          if (mounted && newRowIndex < rowFocusNodes.length) {
+            if (rowFocusNodes[newRowIndex].isNotEmpty) {
+              FocusScope.of(context)
+                  .requestFocus(rowFocusNodes[newRowIndex][0]);
+              _scrollToField(newRowIndex, 0);
+            }
+          }
+        });
       }
     } else if (colIndex < 7 && rowFocusNodes[rowIndex].length > colIndex + 1) {
       FocusScope.of(context)
@@ -982,50 +992,6 @@ class _SalesScreenState extends State<SalesScreen> {
         }
       },
     );
-  }
-
-  void _showEmptiesDialog(int rowIndex) {
-    // التحقق إذا كان السجل مملوكاً للبائع الحالي
-    if (!_canEditRow(rowIndex)) return; // منع الظهور تماماً
-    CommonDialogs.showEmptiesDialog(
-      context: context,
-      currentValue: emptiesValues[rowIndex],
-      options: emptiesOptions,
-      onSelected: (value) {
-        setState(() {
-          emptiesValues[rowIndex] = value;
-          _hasUnsavedChanges = true;
-        });
-        // إضافة صف جديد بعد اختيار الفوارغ
-        _addRowAfterEmptiesSelection(rowIndex);
-      },
-      onCancel: () {
-        // إذا تم الإلغاء، نرجع التركيز لحقل اسم الزبون
-        if (cashOrDebtValues[rowIndex] == 'دین') {
-          Future.delayed(const Duration(milliseconds: 50), () {
-            if (mounted && rowIndex < rowFocusNodes.length) {
-              FocusScope.of(context).requestFocus(rowFocusNodes[rowIndex][7]);
-            }
-          });
-        }
-      },
-    );
-  }
-
-  void _addRowAfterEmptiesSelection(int rowIndex) {
-    _addNewRow();
-    if (rowControllers.isNotEmpty) {
-      final newRowIndex = rowControllers.length - 1;
-      Future.delayed(const Duration(milliseconds: 100), () {
-        if (mounted) {
-          // التركيز على حقل المادة في السجل الجديد (index 0)
-          if (rowFocusNodes[newRowIndex].isNotEmpty) {
-            FocusScope.of(context).requestFocus(rowFocusNodes[newRowIndex][0]);
-            _scrollToField(newRowIndex, 0);
-          }
-        }
-      });
-    }
   }
 
   @override
@@ -1689,14 +1655,14 @@ class _SalesScreenState extends State<SalesScreen> {
                         pw.TableRow(
                           decoration: pw.BoxDecoration(color: headerColor),
                           children: [
-                            _buildPdfHeaderCell('المادة', headerTextColor),
-                            _buildPdfHeaderCell('العدد', headerTextColor),
-                            _buildPdfHeaderCell('العبوة', headerTextColor),
-                            _buildPdfHeaderCell('القائم', headerTextColor),
-                            _buildPdfHeaderCell('الصافي', headerTextColor),
-                            _buildPdfHeaderCell('السعر', headerTextColor),
+                            _buildPdfHeaderCell('نوع', headerTextColor),
                             _buildPdfHeaderCell('الإجمالي', headerTextColor),
-                            _buildPdfHeaderCell('نقدي/دين', headerTextColor),
+                            _buildPdfHeaderCell('السعر', headerTextColor),
+                            _buildPdfHeaderCell('الصافي', headerTextColor),
+                            _buildPdfHeaderCell('القائم', headerTextColor),
+                            _buildPdfHeaderCell('العبوة', headerTextColor),
+                            _buildPdfHeaderCell('العدد', headerTextColor),
+                            _buildPdfHeaderCell('المادة', headerTextColor),
                           ],
                         ),
                         ...rowControllers.asMap().entries.map((entry) {

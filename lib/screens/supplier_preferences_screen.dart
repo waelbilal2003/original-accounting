@@ -61,13 +61,12 @@ class _SupplierPreferencesScreenState extends State<SupplierPreferencesScreen> {
       // ① مسحوبات من يومية المشتريات
       final doc = await _purchasesService.loadDocumentForDate(dateString);
       if (doc != null) {
-        for (var t in doc.transactions) {
-          if (t.workerName == widget.supplier.name &&
-              t.paymentValue.isNotEmpty) {
+        for (var t in doc.purchases) {
+          if (t.sellerName == widget.supplier.name && t.total.isNotEmpty) {
             transactions.add({
               'date': dateString,
-              'value': t.paymentValue,
-              'notes': t.notes,
+              'value': t.total,
+              'notes': '', // ملاحظات غير متوفرة في Purchase
               'source': 'purchases',
             });
           }

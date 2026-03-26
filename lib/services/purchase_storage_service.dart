@@ -391,15 +391,19 @@ class PurchaseStorageService {
     }
   }
 
-  Future loadDocumentForDate(String date) async {
+  Future<PurchaseDocument?> loadDocumentForDate(String date) async {
     try {
       final basePath = await _getBasePath();
-      final folderPath = '$basePath/PurchasesJournals';
+      final folderPath = '$basePath/PurchaseJournals';
       final fileName = _createFileName(date);
       final filePath = '$folderPath/$fileName';
 
       final file = File(filePath);
       if (!await file.exists()) return null;
+
+      final jsonString = await file.readAsString();
+      final jsonMap = jsonDecode(jsonString) as Map<String, dynamic>;
+      return PurchaseDocument.fromJson(jsonMap);
     } catch (e) {
       if (kDebugMode) debugPrint('❌ خطأ في قراءة يومية المشتريات: $e');
       return null;

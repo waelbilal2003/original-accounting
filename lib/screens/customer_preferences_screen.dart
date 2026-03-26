@@ -61,13 +61,12 @@ class _CustomerPreferencesScreenState extends State<CustomerPreferencesScreen> {
       // ① مسحوبات من يومية المبيعات
       final doc = await _salesService.loadDocumentForDate(dateString);
       if (doc != null) {
-        for (var t in doc.transactions) {
-          if (t.workerName == widget.customer.name &&
-              t.paymentValue.isNotEmpty) {
+        for (var t in doc.sales) {
+          if (t.sellerName == widget.customer.name && t.total.isNotEmpty) {
             transactions.add({
               'date': dateString,
-              'value': t.paymentValue,
-              'notes': t.notes,
+              'value': t.total,
+              'notes': '', // ملاحظات غير متوفرة في Sale
               'source': 'sales',
             });
           }

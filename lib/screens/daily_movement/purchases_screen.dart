@@ -740,20 +740,20 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
       );
     }
 
-    if (rowControllers.length >= 2) {
+    if (rowControllers.length >= 1) {
       contentRows.add(
         TableRow(
           decoration: BoxDecoration(color: Colors.yellow[50]),
           children: [
-            _buildEmptyCell(),
-            _buildEmptyCell(),
-            TableComponents.buildTotalCell(totalCountController),
-            _buildEmptyCell(),
-            TableComponents.buildTotalCell(totalBaseController),
-            TableComponents.buildTotalCell(totalNetController),
-            _buildEmptyCell(),
-            TableComponents.buildTotalCell(totalGrandController),
-            _buildEmptyCell(),
+            _buildSummaryCell(''),
+            _buildSummaryCell(''),
+            _buildSummaryValueCell(totalCountController),
+            _buildSummaryCell(''),
+            _buildSummaryValueCell(totalBaseController),
+            _buildSummaryValueCell(totalNetController),
+            _buildSummaryCell(''),
+            _buildSummaryValueCell(totalGrandController),
+            _buildSummaryCell(''),
           ],
         ),
       );
@@ -798,6 +798,36 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
       onFieldChanged: (value, rIndex, cIndex) =>
           _handleFieldChanged(value, rIndex, cIndex),
       inputFormatters: inputFormatters,
+    );
+  }
+
+  Widget _buildSummaryCell(String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+      constraints: const BoxConstraints(minHeight: 25),
+      color: Colors.yellow[50],
+      alignment: Alignment.center,
+      child: Text(text,
+          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+    );
+  }
+
+  Widget _buildSummaryValueCell(TextEditingController controller) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+      constraints: const BoxConstraints(minHeight: 25),
+      color: Colors.yellow[50],
+      alignment: Alignment.center,
+      child: ValueListenableBuilder<TextEditingValue>(
+        valueListenable: controller,
+        builder: (context, value, _) {
+          return Text(
+            value.text,
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+            textAlign: TextAlign.center,
+          );
+        },
+      ),
     );
   }
 
@@ -942,22 +972,6 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
         _clearAllSuggestions();
       }
     });
-  }
-
-  Widget _buildEmptyCell() {
-    return Container(
-      padding: const EdgeInsets.all(1),
-      constraints: const BoxConstraints(minHeight: 25),
-      child: TextField(
-        controller: TextEditingController()..text = '',
-        focusNode: FocusNode(),
-        enabled: false,
-        decoration: const InputDecoration(
-          contentPadding: EdgeInsets.symmetric(horizontal: 2, vertical: 1),
-          border: InputBorder.none,
-        ),
-      ),
-    );
   }
 
   Widget _buildCashOrDebtCell(
@@ -1579,7 +1593,7 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
                             _buildPdfHeaderCell('القائم', headerTextColor),
                             _buildPdfHeaderCell('العبوة', headerTextColor),
                             _buildPdfHeaderCell('العدد', headerTextColor),
-                            _buildPdfHeaderCell('العائدية', headerTextColor),
+                            _buildPdfHeaderCell('المورد', headerTextColor),
                             _buildPdfHeaderCell('المادة', headerTextColor),
                           ],
                         ),

@@ -467,7 +467,7 @@ class SalesStorageService {
     }
   }
 
-  Future loadDocumentForDate(String date) async {
+  Future<SalesDocument?> loadDocumentForDate(String date) async {
     try {
       final basePath = await _getBasePath();
       final folderPath = '$basePath/SalesJournals';
@@ -476,6 +476,10 @@ class SalesStorageService {
 
       final file = File(filePath);
       if (!await file.exists()) return null;
+
+      final jsonString = await file.readAsString();
+      final jsonMap = jsonDecode(jsonString) as Map<String, dynamic>;
+      return SalesDocument.fromJson(jsonMap);
     } catch (e) {
       if (kDebugMode) debugPrint('❌ خطأ في قراءة يومية المبيعات: $e');
       return null;

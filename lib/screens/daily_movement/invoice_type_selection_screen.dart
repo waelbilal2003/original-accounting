@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'customer_selection_screen.dart';
-import 'supplier_purchases_screen.dart';
+import './customer_selection_screen.dart';
+import './supplier_selection_screen.dart';
 
 class InvoiceTypeSelectionScreen extends StatelessWidget {
   final String selectedDate;
@@ -58,6 +58,7 @@ class InvoiceTypeSelectionScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 8),
+            // زر مبيعات مورد (تعديل بسيط)
 
             Expanded(
               child: SizedBox(
@@ -81,9 +82,10 @@ class InvoiceTypeSelectionScreen extends StatelessWidget {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => SupplierPurchasesScreen(
+                        builder: (context) => SupplierSelectionScreen(
                           selectedDate: selectedDate,
-                          supplierName: storeName,
+                          storeName: storeName,
+                          reportType: 'purchases',
                         ),
                       ),
                     );
