@@ -297,6 +297,12 @@ class _SalesScreenState extends State<SalesScreen> {
       _calculateRowValues(rowIndex);
       _calculateAllTotals();
     });
+
+    // اسم الزبون (index 7) — للاقتراحات
+    controllers[7].addListener(() {
+      _hasUnsavedChanges = true;
+      _updateCustomerSuggestions(rowIndex);
+    });
   }
 
   // تحديث اقتراحات المادة - مثل purchases_screen بالضبط
@@ -430,7 +436,7 @@ class _SalesScreenState extends State<SalesScreen> {
     _toggleFullScreenSuggestions(type: 'customer', show: false);
 
     // ثانياً: تعيين النص في المتحكم
-    rowControllers[rowIndex][10].text = suggestion;
+    rowControllers[rowIndex][7].text = suggestion;
 
     // ثالثاً: تحديث حالة "التغييرات غير المحفوظة" والمتغير الخاص باسم الزبون
     setState(() {
@@ -878,14 +884,6 @@ class _SalesScreenState extends State<SalesScreen> {
 
   Widget _buildCashOrDebtCell(
       int rowIndex, int colIndex, bool isOwnedByCurrentSeller) {
-    // إنشاء متحكم مؤقت لاسم الزبون إذا لم يكن موجوداً
-    if (rowControllers[rowIndex].length <= 7) {
-      // إذا كان عدد الأعمدة أقل، أضف متحكمات إضافية
-      while (rowControllers[rowIndex].length <= 10) {
-        rowControllers[rowIndex].add(TextEditingController());
-      }
-    }
-
     Widget cell = TableBuilder.buildCashOrDebtCell(
       rowIndex: rowIndex,
       colIndex: colIndex,
@@ -961,13 +959,13 @@ class _SalesScreenState extends State<SalesScreen> {
           } else if (value == 'دين') {
             // تفريغ اسم الزبون القديم
             customerNames[rowIndex] = '';
-            rowControllers[rowIndex][10].text = '';
-            // التركيز على حقل اسم الزبون (index 10)
+            rowControllers[rowIndex][7].text = '';
+            // التركيز على حقل اسم الزبون (index 7)
             Future.delayed(const Duration(milliseconds: 100), () {
               if (mounted && rowIndex < rowFocusNodes.length) {
-                if (rowFocusNodes[rowIndex].length > 10) {
+                if (rowFocusNodes[rowIndex].length > 7) {
                   FocusScope.of(context)
-                      .requestFocus(rowFocusNodes[rowIndex][10]);
+                      .requestFocus(rowFocusNodes[rowIndex][7]);
                   _updateCustomerSuggestions(rowIndex);
                 }
               }
@@ -1006,7 +1004,7 @@ class _SalesScreenState extends State<SalesScreen> {
         if (cashOrDebtValues[rowIndex] == 'دین') {
           Future.delayed(const Duration(milliseconds: 50), () {
             if (mounted && rowIndex < rowFocusNodes.length) {
-              FocusScope.of(context).requestFocus(rowFocusNodes[rowIndex][10]);
+              FocusScope.of(context).requestFocus(rowFocusNodes[rowIndex][7]);
             }
           });
         }
@@ -1513,14 +1511,9 @@ class _SalesScreenState extends State<SalesScreen> {
   }
 
   void _updateCustomerSuggestions(int rowIndex) async {
-    // التأكد من وجود متحكم لاسم الزبون
-    if (rowControllers[rowIndex].length <= 7) {
-      while (rowControllers[rowIndex].length <= 10) {
-        rowControllers[rowIndex].add(TextEditingController());
-      }
-    }
+    if (rowControllers[rowIndex].length <= 7) return;
 
-    final query = rowControllers[rowIndex][7].text; // استخدام الفهرس الصحيح
+    final query = rowControllers[rowIndex][7].text;
     if (query.length >= 1 && cashOrDebtValues[rowIndex] == 'دين') {
       final suggestions =
           await getEnhancedSuggestions(_customerIndexService, query);
@@ -1683,32 +1676,27 @@ class _SalesScreenState extends State<SalesScreen> {
                       border:
                           pw.TableBorder.all(color: borderColor, width: 0.5),
                       columnWidths: {
-                        0: const pw.FlexColumnWidth(2),
-                        1: const pw.FlexColumnWidth(2),
-                        2: const pw.FlexColumnWidth(3),
-                        3: const pw.FlexColumnWidth(2),
-                        4: const pw.FlexColumnWidth(2),
-                        5: const pw.FlexColumnWidth(2),
-                        6: const pw.FlexColumnWidth(3),
-                        7: const pw.FlexColumnWidth(2),
-                        8: const pw.FlexColumnWidth(1),
-                        9: const pw.FlexColumnWidth(3),
-                        10: const pw.FlexColumnWidth(4),
-                        11: const pw.FlexColumnWidth(1),
+                        0: const pw.FlexColumnWidth(4), // المادة
+                        1: const pw.FlexColumnWidth(2), // العدد
+                        2: const pw.FlexColumnWidth(3), // العبوة
+                        3: const pw.FlexColumnWidth(2), // القائم
+                        4: const pw.FlexColumnWidth(2), // الصافي
+                        5: const pw.FlexColumnWidth(2), // السعر
+                        6: const pw.FlexColumnWidth(3), // الإجمالي
+                        7: const pw.FlexColumnWidth(2), // نقدي/دين
                       },
                       children: [
                         pw.TableRow(
                           decoration: pw.BoxDecoration(color: headerColor),
                           children: [
-                            _buildPdfHeaderCell('نوع', headerTextColor),
-                            _buildPdfHeaderCell('الإجمالي', headerTextColor),
-                            _buildPdfHeaderCell('السعر', headerTextColor),
-                            _buildPdfHeaderCell('الصافي', headerTextColor),
-                            _buildPdfHeaderCell('القائم', headerTextColor),
-                            _buildPdfHeaderCell('العبوة', headerTextColor),
-                            _buildPdfHeaderCell('العدد', headerTextColor),
-                            _buildPdfHeaderCell('العائدية', headerTextColor),
                             _buildPdfHeaderCell('المادة', headerTextColor),
+                            _buildPdfHeaderCell('العدد', headerTextColor),
+                            _buildPdfHeaderCell('العبوة', headerTextColor),
+                            _buildPdfHeaderCell('القائم', headerTextColor),
+                            _buildPdfHeaderCell('الصافي', headerTextColor),
+                            _buildPdfHeaderCell('السعر', headerTextColor),
+                            _buildPdfHeaderCell('الإجمالي', headerTextColor),
+                            _buildPdfHeaderCell('نقدي/دين', headerTextColor),
                           ],
                         ),
                         ...rowControllers.asMap().entries.map((entry) {
@@ -1717,25 +1705,23 @@ class _SalesScreenState extends State<SalesScreen> {
                           if (controllers[1].text.isEmpty &&
                               controllers[4].text.isEmpty) {
                             return pw.TableRow(
-                                children: List.filled(12, pw.SizedBox()));
+                                children: List.filled(8, pw.SizedBox()));
                           }
                           final color =
                               index % 2 == 0 ? rowEvenColor : rowOddColor;
                           return pw.TableRow(
                             decoration: pw.BoxDecoration(color: color),
                             children: [
-                              _buildPdfCell(emptiesValues[index]),
-                              _buildPdfCell(cashOrDebtValues[index]),
-                              _buildPdfCell(controllers[9].text, isBold: true),
-                              _buildPdfCell(controllers[8].text),
-                              _buildPdfCell(controllers[7].text),
-                              _buildPdfCell(controllers[6].text),
-                              _buildPdfCell(controllers[5].text),
-                              _buildPdfCell(controllers[4].text),
-                              _buildPdfCell(controllers[3].text),
-                              _buildPdfCell(controllers[2].text),
-                              _buildPdfCell(controllers[1].text),
-                              _buildPdfCell(controllers[0].text),
+                              _buildPdfCell(controllers[0].text), // المادة
+                              _buildPdfCell(controllers[1].text), // العدد
+                              _buildPdfCell(controllers[2].text), // العبوة
+                              _buildPdfCell(controllers[3].text), // القائم
+                              _buildPdfCell(controllers[4].text), // الصافي
+                              _buildPdfCell(controllers[5].text), // السعر
+                              _buildPdfCell(controllers[6].text,
+                                  isBold: true), // الإجمالي
+                              _buildPdfCell(
+                                  cashOrDebtValues[index]), // نقدي/دين
                             ],
                           );
                         }).toList(),
@@ -1743,22 +1729,18 @@ class _SalesScreenState extends State<SalesScreen> {
                           decoration: pw.BoxDecoration(
                               color: PdfColor.fromInt(0xFFFFCC80)),
                           children: [
+                            _buildPdfCell('م', isBold: true),
+                            _buildPdfCell(totalCountController.text,
+                                isBold: true),
                             _buildPdfCell(''),
+                            _buildPdfCell(totalBaseController.text,
+                                isBold: true),
+                            _buildPdfCell(totalNetController.text,
+                                isBold: true),
                             _buildPdfCell(''),
                             _buildPdfCell(totalGrandController.text,
                                 isBold: true),
                             _buildPdfCell(''),
-                            _buildPdfCell(totalNetController.text,
-                                isBold: true),
-                            _buildPdfCell(totalBaseController.text,
-                                isBold: true),
-                            _buildPdfCell(''),
-                            _buildPdfCell(totalCountController.text,
-                                isBold: true),
-                            _buildPdfCell(''),
-                            _buildPdfCell(''),
-                            _buildPdfCell(''),
-                            _buildPdfCell('م', isBold: true),
                           ],
                         ),
                       ],

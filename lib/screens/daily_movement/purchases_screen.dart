@@ -65,7 +65,6 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
 
   // قوائم الخيارات
   final List<String> cashOrDebtOptions = ['نقدي', 'دين'];
-  final List<String> emptiesOptions = ['مع فوارغ', 'بدون فوارغ'];
 
   // متحكمات للتمرير
   final ScrollController _verticalScrollController = ScrollController();
@@ -1573,7 +1572,6 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
                         pw.TableRow(
                           decoration: pw.BoxDecoration(color: headerColor),
                           children: [
-                            _buildPdfHeaderCell('فوارغ', headerTextColor),
                             _buildPdfHeaderCell('نوع', headerTextColor),
                             _buildPdfHeaderCell('الإجمالي', headerTextColor),
                             _buildPdfHeaderCell('السعر', headerTextColor),
@@ -1583,7 +1581,6 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
                             _buildPdfHeaderCell('العدد', headerTextColor),
                             _buildPdfHeaderCell('العائدية', headerTextColor),
                             _buildPdfHeaderCell('المادة', headerTextColor),
-                            _buildPdfHeaderCell('ت', headerTextColor),
                           ],
                         ),
                         ...rowControllers.asMap().entries.map((entry) {
