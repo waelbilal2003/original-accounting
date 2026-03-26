@@ -87,7 +87,7 @@ class _SupplierPurchasesScreenState extends State<SupplierPurchasesScreen> {
                   // --- العناوين ---
                   pw.Center(
                     child: pw.Text(
-                      'مشتريات من المورد ${widget.supplierName}',
+                      'مشتريات من المورد',
                       style: pw.TextStyle(
                         fontSize: 18,
                         fontWeight: pw.FontWeight.bold,

@@ -77,7 +77,17 @@ class InvoiceTypeSelectionScreen extends StatelessWidget {
                     'مشتريات من مورد',
                     style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                   ),
-                  onPressed: () {},
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => SupplierPurchasesScreen(
+                          selectedDate: selectedDate,
+                          supplierName: storeName,
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ),
             ),
