@@ -7,8 +7,16 @@ on:
     branches: [ "main" ]
 
 jobs:
-  build-windows-x64:
-    runs-on: windows-latest
+  build:
+    runs-on: ubuntu-latest
+
+    # نقل المتغيرات السرية إلى مستوى الـ job لتكون متاحة لجميع الخطوات
+    env:
+      KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+      KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+      KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+      STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -16,7 +24,7 @@ jobs:
       - name: Install Flutter
         uses: subosito/flutter-action@v2
         with:
-          channel: 'stable'
+          flutter-version: '3.35.1' # يمكنك تحديث هذا الإصدار إذا لزم الأمر
 
       - name: Flutter Clean
         run: flutter clean
@@ -24,81 +32,44 @@ jobs:
       - name: Flutter Pub Get
         run: flutter pub get
 
-      - name: Setup Visual Studio C++ Build Tools
-        uses: ilammy/msvc-dev-cmd@v1
-        with:
-          arch: x64
-
-      - name: Install VC++ Redistributable (x64)
+      - name: Build All APKs
         run: |
-          Invoke-WebRequest -Uri "https://aka.ms/vs/17/release/vc_redist.x64.exe" -OutFile "vc_redist.x64.exe"
-          Start-Process -FilePath "./vc_redist.x64.exe" -ArgumentList "/install", "/quiet", "/norestart" -Wait
-        shell: powershell
+          # الخطوة 1: تهيئة ملف Keystore من الـ Secrets
+          mkdir -p android/app
+          echo $KEYSTORE_BASE64 | base64 --decode > android/app/upload-keystore.jks
+          
+          # الخطوة 2: بناء النسخ المقسمة (32-bit و 64-bit)
+          echo "Building split-per-abi APKs..."
+          flutter build apk --release --split-per-abi
+          
+          # الخطوة 3: بناء نسخة الـ APK المعماة (Obfuscated)
+          echo "Building obfuscated APK..."
+          # سيتم إنشاء مجلد 'build/symbols' يحتوي على خريطة فك التعتيم
+          flutter build apk --release --obfuscate --split-debug-info=build/symbols
 
-      - name: Build Windows Release (x64)
-        run: flutter build windows --release
-
-      - name: Debug Folder Structure
-        run: |
-          Write-Host "Debugging build folders..."
-          Get-ChildItem -Path "build" -Recurse | Where-Object {$_.Name -like "*.dll" -or $_.Name -like "*.exe"} | Select-Object FullName
-        shell: powershell
-
-      - name: Collect Required DLLs
-        run: |
-          $releaseDir = $null
-          $searchPaths = @(
-            "build/windows/x64/runner/Release",
-            "build/windows/runner/Release",
-            "build/windows/x64/windows/runner/Release"
-          )
-          foreach ($path in $searchPaths) {
-            if (Test-Path "$path/*.exe") { $releaseDir = $path; break }
-          }
-          if (-not $releaseDir) { Write-Host "Error: release dir not found"; exit 1 }
-          Write-Host "Found: $releaseDir"
-
-          $vcDlls = @("msvcp140.dll", "vcruntime140.dll", "vcruntime140_1.dll")
-          foreach ($dll in $vcDlls) {
-            $dest = "$releaseDir\$dll"
-            if (-not (Test-Path $dest)) {
-              $src = "C:\Windows\System32\$dll"
-              if (Test-Path $src) { Copy-Item $src $dest -Force; Write-Host "Copied $dll" }
-              else { Write-Host "Warning: $dll not found" }
-            } else { Write-Host "OK $dll" }
-          }
-
-          $pluginDlls = @("sqlite3.dll", "sqlite3.x64.windows.dll")
-          foreach ($dll in $pluginDlls) {
-            $dest = "$releaseDir\$dll"
-            if (Test-Path $dest) { Write-Host "OK $dll"; continue }
-            $found = $false
-            :loop foreach ($pattern in @("build/**/$dll", "build/windows/**/$dll", "build/windows/x64/**/$dll")) {
-              $files = Get-ChildItem -Path $pattern -Recurse -ErrorAction SilentlyContinue | Where-Object { $_.FullName -ne $dest }
-              if ($files) {
-                foreach ($f in $files) {
-                  if ($f.Directory.FullName -eq $releaseDir) { continue }
-                  Copy-Item $f.FullName $dest -Force; Write-Host "Copied $dll"; $found = $true; break :loop
-                }
-              }
-            }
-            if (-not $found) { Write-Host "Warning: $dll not found" }
-          }
-        shell: powershell
-
-      - name: Package as ZIP
-        run: |
-          $releaseDir = $null
-          foreach ($path in @("build/windows/x64/runner/Release","build/windows/runner/Release","build/windows/x64/windows/runner/Release")) {
-            if (Test-Path "$path/*.exe") { $releaseDir = $path; break }
-          }
-          if (-not $releaseDir) { Write-Host "Error: release dir not found"; exit 1 }
-          Compress-Archive -Path "$releaseDir/*" -DestinationPath "windows-app-x64.zip" -Force
-          Write-Host "Created: windows-app-x64.zip"
-        shell: powershell
-
-      - name: Upload ZIP Artifact
+      - name: Upload 32-bit APK (armeabi-v7a)
         uses: actions/upload-artifact@v4
         with:
-          name: release-windows-x64
-          path: windows-app-x64.zip
+          name: release-apk-armeabi-v7a
+          path: build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk
+
+      - name: Upload 64-bit APK (arm64-v8a)
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-apk-arm64-v8a
+          path: build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
+
+      - name: Upload Obfuscated APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-apk-obfuscated
+          # المسار الافتراضي للـ APK غير المقسم هو app-release.apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+
+      - name: Upload Obfuscation Symbols
+        uses: actions/upload-artifact@v4
+        with:
+          name: obfuscation-symbols
+          # رفع مجلد الـ symbols بالكامل، وهو ضروري لفك تشفير أخطاء التطبيق لاحقاً
+          path: build/symbols
+ 
