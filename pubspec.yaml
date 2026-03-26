@@ -1,0 +1,69 @@
+name: original_accounting
+description: "A new Flutter project."
+
+publish_to: 'none' 
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=2.19.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+  
+  # Database
+  sqflite: ^2.3.0
+  path: ^1.9.0
+  
+  # State Management
+  provider: 6.1.5+1
+  
+  # PDF Generation for printing invoices
+  pdf: ^3.10.4
+  share_plus: ^7.1.0
+  # Date handling
+  intl: ^0.19.0
+  
+  # Local storage for settings
+  path_provider: 2.1.5
+  shared_preferences: 2.5.3
+
+  http: ^1.1.0  # لإجراء طلبات الشبكة
+
+  # اللوغو
+  flutter_launcher_icons: "^0.14.4"
+
+   # مكتبات الأمان والحماية
+  device_info_plus: 10.1.2      # الحصول على معلومات الجهاز
+  crypto: 3.0.6                 # التشفير وإنشاء البصمات
+  
+  archive: ^3.4.10      # ضغط ZIP
+  file_picker: ^8.0.3   # اختيار ملف الاسترجاع
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^2.0.0
+  
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/fonts/Cairo-Regular.ttf
+
+# 👇 قسم أيقونة التطبيق
+
+flutter_launcher_icons:
+  # الصورة المصدر الرئيسية (استخدم صورة عالية الجودة 1024x1024)
+  image_path: "assets/icon/icon.png"
+  
+  # إعدادات Android
+  android: true
+  adaptive_icon_foreground: "assets/icon/icon.png"  # صورتك نفسها أو صورة منفصلة للمقدمة
+  
+  # إعدادات Windows (بدون icon_size للحفاظ على الجودة)
+  windows:
+    generate: true
+    image_path: "assets/icon/icon.png"

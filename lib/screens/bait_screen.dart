@@ -1,0 +1,162 @@
+import 'package:flutter/material.dart';
+import '../models/bait_model.dart';
+import '../services/bait_service.dart';
+
+class BaitScreen extends StatefulWidget {
+  final String selectedDate;
+
+  const BaitScreen({
+    Key? key,
+    required this.selectedDate,
+  }) : super(key: key);
+
+  @override
+  _BaitScreenState createState() => _BaitScreenState();
+}
+
+class _BaitScreenState extends State<BaitScreen> {
+  final BaitService _baitService = BaitService();
+  late Future<List<BaitData>> _baitDataFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _baitDataFuture = _baitService.getBaitDataForDate(widget.selectedDate);
+  }
+
+  Widget _buildHeaderCell(String text, int flex) {
+    return Expanded(
+      flex: flex,
+      child: Text(
+        text,
+        textAlign: TextAlign.center,
+        style: const TextStyle(
+          fontWeight: FontWeight.bold,
+          color: Colors.black87,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDataCell(String text, int flex,
+      {Color color = Colors.black, FontWeight fontWeight = FontWeight.normal}) {
+    return Expanded(
+      flex: flex,
+      child: Text(
+        text,
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          color: color,
+          fontWeight: fontWeight,
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('شاشة البايت ليوم ${widget.selectedDate}'),
+        backgroundColor: Colors.teal[700],
+        foregroundColor: Colors.white,
+        centerTitle: true,
+      ),
+      body: Directionality(
+        textDirection: TextDirection.rtl,
+        child: FutureBuilder<List<BaitData>>(
+          future: _baitDataFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            if (snapshot.hasError) {
+              return Center(child: Text('حدث خطأ: ${snapshot.error}'));
+            }
+
+            if (!snapshot.hasData || snapshot.data!.isEmpty) {
+              return const Center(
+                child: Text(
+                  'لا توجد حركة مواد لهذا اليوم',
+                  style: TextStyle(fontSize: 18, color: Colors.grey),
+                ),
+              );
+            }
+
+            final baitList = snapshot.data!;
+
+            return Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Column(
+                children: [
+                  // رأس الجدول — بدون عمود الاستلام
+                  Container(
+                    padding: const EdgeInsets.symmetric(vertical: 12.0),
+                    decoration: BoxDecoration(
+                        color: Colors.teal.shade100,
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(8),
+                          topRight: Radius.circular(8),
+                        ),
+                        border: Border.all(color: Colors.teal.shade200)),
+                    child: Row(
+                      children: [
+                        _buildHeaderCell('المادة', 3),
+                        _buildHeaderCell('المشتريات', 2),
+                        _buildHeaderCell('المبيعات', 2),
+                        _buildHeaderCell('البايت', 2),
+                      ],
+                    ),
+                  ),
+
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: baitList.length,
+                      itemBuilder: (context, index) {
+                        final data = baitList[index];
+                        // البايت = المشتريات - المبيعات (بدون الاستلام)
+                        final double baitWithoutReceipts =
+                            data.purchasesCount - data.salesCount;
+                        return Container(
+                          padding: const EdgeInsets.symmetric(vertical: 10.0),
+                          decoration: BoxDecoration(
+                            color: index.isEven
+                                ? Colors.white
+                                : Colors.grey.shade100,
+                            border: Border(
+                              bottom: BorderSide(color: Colors.grey.shade300),
+                              left: BorderSide(color: Colors.grey.shade300),
+                              right: BorderSide(color: Colors.grey.shade300),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              _buildDataCell(data.materialName, 3),
+                              _buildDataCell(
+                                  data.purchasesCount.toStringAsFixed(0), 2),
+                              _buildDataCell(
+                                  data.salesCount.toStringAsFixed(0), 2),
+                              _buildDataCell(
+                                baitWithoutReceipts.toStringAsFixed(0),
+                                2,
+                                color: baitWithoutReceipts >= 0
+                                    ? Colors.green.shade800
+                                    : Colors.red.shade800,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}

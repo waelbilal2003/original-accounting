@@ -1,0 +1,104 @@
+name: Flutter CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-windows-x64:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+
+      - name: Flutter Clean
+        run: flutter clean
+
+      - name: Flutter Pub Get
+        run: flutter pub get
+
+      - name: Setup Visual Studio C++ Build Tools
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Install VC++ Redistributable (x64)
+        run: |
+          Invoke-WebRequest -Uri "https://aka.ms/vs/17/release/vc_redist.x64.exe" -OutFile "vc_redist.x64.exe"
+          Start-Process -FilePath "./vc_redist.x64.exe" -ArgumentList "/install", "/quiet", "/norestart" -Wait
+        shell: powershell
+
+      - name: Build Windows Release (x64)
+        run: flutter build windows --release
+
+      - name: Debug Folder Structure
+        run: |
+          Write-Host "Debugging build folders..."
+          Get-ChildItem -Path "build" -Recurse | Where-Object {$_.Name -like "*.dll" -or $_.Name -like "*.exe"} | Select-Object FullName
+        shell: powershell
+
+      - name: Collect Required DLLs
+        run: |
+          $releaseDir = $null
+          $searchPaths = @(
+            "build/windows/x64/runner/Release",
+            "build/windows/runner/Release",
+            "build/windows/x64/windows/runner/Release"
+          )
+          foreach ($path in $searchPaths) {
+            if (Test-Path "$path/*.exe") { $releaseDir = $path; break }
+          }
+          if (-not $releaseDir) { Write-Host "Error: release dir not found"; exit 1 }
+          Write-Host "Found: $releaseDir"
+
+          $vcDlls = @("msvcp140.dll", "vcruntime140.dll", "vcruntime140_1.dll")
+          foreach ($dll in $vcDlls) {
+            $dest = "$releaseDir\$dll"
+            if (-not (Test-Path $dest)) {
+              $src = "C:\Windows\System32\$dll"
+              if (Test-Path $src) { Copy-Item $src $dest -Force; Write-Host "Copied $dll" }
+              else { Write-Host "Warning: $dll not found" }
+            } else { Write-Host "OK $dll" }
+          }
+
+          $pluginDlls = @("sqlite3.dll", "sqlite3.x64.windows.dll")
+          foreach ($dll in $pluginDlls) {
+            $dest = "$releaseDir\$dll"
+            if (Test-Path $dest) { Write-Host "OK $dll"; continue }
+            $found = $false
+            :loop foreach ($pattern in @("build/**/$dll", "build/windows/**/$dll", "build/windows/x64/**/$dll")) {
+              $files = Get-ChildItem -Path $pattern -Recurse -ErrorAction SilentlyContinue | Where-Object { $_.FullName -ne $dest }
+              if ($files) {
+                foreach ($f in $files) {
+                  if ($f.Directory.FullName -eq $releaseDir) { continue }
+                  Copy-Item $f.FullName $dest -Force; Write-Host "Copied $dll"; $found = $true; break :loop
+                }
+              }
+            }
+            if (-not $found) { Write-Host "Warning: $dll not found" }
+          }
+        shell: powershell
+
+      - name: Package as ZIP
+        run: |
+          $releaseDir = $null
+          foreach ($path in @("build/windows/x64/runner/Release","build/windows/runner/Release","build/windows/x64/windows/runner/Release")) {
+            if (Test-Path "$path/*.exe") { $releaseDir = $path; break }
+          }
+          if (-not $releaseDir) { Write-Host "Error: release dir not found"; exit 1 }
+          Compress-Archive -Path "$releaseDir/*" -DestinationPath "windows-app-x64.zip" -Force
+          Write-Host "Created: windows-app-x64.zip"
+        shell: powershell
+
+      - name: Upload ZIP Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-windows-x64
+          path: windows-app-x64.zip
