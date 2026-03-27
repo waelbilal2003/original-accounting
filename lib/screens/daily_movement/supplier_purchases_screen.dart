@@ -33,6 +33,12 @@ class _SupplierPurchasesScreenState extends State<SupplierPurchasesScreen> {
   late Future<List<Purchase>> _purchasesDataFuture;
   double? _supplierBalance;
 
+  // متغيرات الفلترة
+  DateTime? _filterFrom;
+  DateTime? _filterTo;
+  List<Purchase> _allItems = [];
+  List<Purchase> _filteredItems = [];
+  bool _isFiltered = false;
   @override
   void initState() {
     super.initState();
@@ -56,7 +62,289 @@ class _SupplierPurchasesScreenState extends State<SupplierPurchasesScreen> {
     }
   }
 
-  // --- دالة توليد الـ PDF والمشاركة ---
+  // دالة تطبيق الفلترة
+  void _applyFilter() {
+    if (!mounted) return;
+
+    final screenDate = _parseDateFromString(widget.selectedDate);
+
+    setState(() {
+      if (_filterFrom == null && _filterTo == null) {
+        _filteredItems = List<Purchase>.from(_allItems);
+        _isFiltered = false;
+      } else {
+        if (screenDate != null) {
+          final day =
+              DateTime(screenDate.year, screenDate.month, screenDate.day);
+          bool isInRange = true;
+          if (_filterFrom != null && day.isBefore(_filterFrom!))
+            isInRange = false;
+          if (_filterTo != null && day.isAfter(_filterTo!)) isInRange = false;
+
+          _filteredItems = isInRange ? List<Purchase>.from(_allItems) : [];
+        } else {
+          _filteredItems = [];
+        }
+        _isFiltered = true;
+      }
+    });
+  }
+
+  void _clearFilter() {
+    setState(() {
+      _filterFrom = null;
+      _filterTo = null;
+    });
+    _applyFilter();
+  }
+
+  // 4. دالة تحويل التاريخ
+  DateTime? _parseDateFromString(String dateStr) {
+    try {
+      final parts = dateStr.split('/');
+      if (parts.length != 3) return null;
+      return DateTime(
+          int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2]));
+    } catch (_) {
+      return null;
+    }
+  }
+
+// 5. نافذة اختيار التاريخ
+  Future<void> _showDateRangeDialog() async {
+    final now = DateTime.now();
+    DateTime tempFrom = _filterFrom ?? now;
+    DateTime tempTo = _filterTo ?? now;
+
+    DateTime _clampDay(int y, int m, int d) {
+      final max = DateUtils.getDaysInMonth(y, m);
+      return DateTime(y, m, d > max ? max : d);
+    }
+
+    const months = [
+      'يناير',
+      'فبراير',
+      'مارس',
+      'أبريل',
+      'مايو',
+      'يونيو',
+      'يوليو',
+      'أغسطس',
+      'سبتمبر',
+      'أكتوبر',
+      'نوفمبر',
+      'ديسمبر'
+    ];
+
+    Widget miniPicker({
+      required String label,
+      required String display,
+      required VoidCallback onUp,
+      required VoidCallback onDown,
+      required Color color,
+    }) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(label,
+              style: TextStyle(
+                  fontSize: 10, fontWeight: FontWeight.bold, color: color)),
+          const SizedBox(height: 2),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.grey[300]!),
+            ),
+            child: Column(
+              children: [
+                SizedBox(
+                  height: 28,
+                  width: 28,
+                  child: IconButton(
+                    padding: EdgeInsets.zero,
+                    icon: Icon(Icons.arrow_drop_up,
+                        size: 22, color: Colors.green[600]),
+                    onPressed: onUp,
+                  ),
+                ),
+                SizedBox(
+                  height: 26,
+                  child: Center(
+                    child: Text(display,
+                        style: const TextStyle(
+                            fontSize: 12, fontWeight: FontWeight.bold)),
+                  ),
+                ),
+                SizedBox(
+                  height: 28,
+                  width: 28,
+                  child: IconButton(
+                    padding: EdgeInsets.zero,
+                    icon: Icon(Icons.arrow_drop_down,
+                        size: 22, color: Colors.red[600]),
+                    onPressed: onDown,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+
+    Widget datePicker({
+      required String sectionLabel,
+      required DateTime date,
+      required Color color,
+      required void Function(DateTime) onChanged,
+    }) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.calendar_today, size: 13, color: color),
+              const SizedBox(width: 4),
+              Text(sectionLabel,
+                  style: TextStyle(
+                      fontSize: 12, fontWeight: FontWeight.bold, color: color)),
+              const SizedBox(width: 8),
+              Text(
+                '${date.year}/${date.month}/${date.day}',
+                style: TextStyle(
+                    fontSize: 12, color: color, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              miniPicker(
+                label: 'اليوم',
+                display: date.day.toString(),
+                color: color,
+                onUp: () =>
+                    onChanged(_clampDay(date.year, date.month, date.day + 1)),
+                onDown: () =>
+                    onChanged(_clampDay(date.year, date.month, date.day - 1)),
+              ),
+              miniPicker(
+                label: 'الشهر',
+                display: months[date.month - 1],
+                color: color,
+                onUp: () {
+                  final m = date.month < 12 ? date.month + 1 : 1;
+                  onChanged(_clampDay(date.year, m, date.day));
+                },
+                onDown: () {
+                  final m = date.month > 1 ? date.month - 1 : 12;
+                  onChanged(_clampDay(date.year, m, date.day));
+                },
+              ),
+              miniPicker(
+                label: 'السنة',
+                display: date.year.toString(),
+                color: color,
+                onUp: () =>
+                    onChanged(_clampDay(date.year + 1, date.month, date.day)),
+                onDown: () =>
+                    onChanged(_clampDay(date.year - 1, date.month, date.day)),
+              ),
+            ],
+          ),
+        ],
+      );
+    }
+
+    await showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(builder: (ctx, setDialogState) {
+          return Directionality(
+            textDirection: TextDirection.rtl,
+            child: AlertDialog(
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16)),
+              titlePadding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              contentPadding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              title: const Row(
+                children: [
+                  Icon(Icons.date_range, color: Colors.red),
+                  SizedBox(width: 8),
+                  Text('فلترة بالتاريخ',
+                      style:
+                          TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  datePicker(
+                    sectionLabel: 'من تاريخ',
+                    date: tempFrom,
+                    color: Colors.red[700]!,
+                    onChanged: (d) => setDialogState(() => tempFrom = d),
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8),
+                    child: Divider(height: 1),
+                  ),
+                  datePicker(
+                    sectionLabel: 'إلى تاريخ',
+                    date: tempTo,
+                    color: Colors.red[800]!,
+                    onChanged: (d) => setDialogState(() => tempTo = d),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('إلغاء'),
+                ),
+                TextButton(
+                  onPressed: () {
+                    _clearFilter();
+                    Navigator.pop(ctx);
+                  },
+                  child: const Text('مسح الفلتر',
+                      style: TextStyle(color: Colors.red)),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red[700]),
+                  onPressed: () {
+                    if (tempFrom.isAfter(tempTo)) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content:
+                              Text('تاريخ البداية يجب أن يكون قبل النهاية'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                      return;
+                    }
+                    setState(() {
+                      _filterFrom = tempFrom;
+                      _filterTo = tempTo;
+                    });
+                    _applyFilter();
+                    Navigator.pop(ctx);
+                  },
+                  child: const Text('تطبيق',
+                      style: TextStyle(color: Colors.white)),
+                ),
+              ],
+            ),
+          );
+        });
+      },
+    );
+  }
+
+  // --- دالة توليد الـ PDF والمشاركة (تستخدم البيانات المفلترة) ---
   Future<void> _generateAndSharePdf(List<Purchase> items) async {
     final pdf = pw.Document();
 
@@ -80,6 +368,18 @@ class _SupplierPurchasesScreenState extends State<SupplierPurchasesScreen> {
       totalNet += double.tryParse(item.net) ?? 0;
       totalCount += double.tryParse(item.count) ?? 0;
       totalGrand += double.tryParse(item.total) ?? 0;
+    }
+
+    // وصف نطاق الفلتر للـ PDF
+    String filterDesc = 'الفترة: حتى تاريخ ${widget.selectedDate}';
+    if (_filterFrom != null || _filterTo != null) {
+      final from = _filterFrom != null
+          ? '${_filterFrom!.year}/${_filterFrom!.month}/${_filterFrom!.day}'
+          : 'البداية';
+      final to = _filterTo != null
+          ? '${_filterTo!.year}/${_filterTo!.month}/${_filterTo!.day}'
+          : 'النهاية';
+      filterDesc = 'الفترة: من $from إلى $to';
     }
 
     final String balanceTextPdf =
@@ -122,7 +422,7 @@ class _SupplierPurchasesScreenState extends State<SupplierPurchasesScreen> {
                   pw.SizedBox(height: 5),
                   pw.Center(
                     child: pw.Text(
-                      'بتاريخ ${widget.selectedDate} لمحل ${widget.storeName}',
+                      '${filterDesc} لمحل ${widget.storeName}',
                       style: const pw.TextStyle(
                           fontSize: 14, color: PdfColors.grey700),
                       textDirection: pw.TextDirection.rtl,
@@ -231,8 +531,7 @@ class _SupplierPurchasesScreenState extends State<SupplierPurchasesScreen> {
     await file.writeAsBytes(await pdf.save());
 
     await Share.shareXFiles([XFile(file.path)],
-        text:
-            'مشتريات المورد ${widget.supplierName} بتاريخ ${widget.selectedDate}');
+        text: 'مشتريات المورد ${widget.supplierName} - ${filterDesc}');
   }
 
   // --- دوال مساعدة للـ PDF ---
@@ -278,7 +577,7 @@ class _SupplierPurchasesScreenState extends State<SupplierPurchasesScreen> {
         style: TextStyle(
           fontWeight: FontWeight.bold,
           color: color,
-          fontSize: 12,
+          fontSize: 18,
         ),
       ),
     );
@@ -295,7 +594,7 @@ class _SupplierPurchasesScreenState extends State<SupplierPurchasesScreen> {
         style: TextStyle(
           color: color,
           fontWeight: fontWeight,
-          fontSize: 12,
+          fontSize: 17,
         ),
       ),
     );
@@ -311,12 +610,40 @@ class _SupplierPurchasesScreenState extends State<SupplierPurchasesScreen> {
         ),
         actions: [
           IconButton(
+            icon: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                const Icon(Icons.date_range),
+                if (_isFiltered)
+                  Positioned(
+                    top: -4,
+                    left: -4,
+                    child: Container(
+                      width: 10,
+                      height: 10,
+                      decoration: const BoxDecoration(
+                        color: Colors.orange,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            tooltip: 'فلترة بالتاريخ',
+            onPressed: _showDateRangeDialog,
+          ),
+          if (_isFiltered)
+            IconButton(
+              icon: const Icon(Icons.filter_alt_off),
+              tooltip: 'مسح الفلتر',
+              onPressed: _clearFilter,
+            ),
+          IconButton(
             icon: const Icon(Icons.picture_as_pdf),
             tooltip: 'مشاركة PDF',
             onPressed: () async {
-              final data = await _purchasesDataFuture;
-              if (data.isNotEmpty) {
-                _generateAndSharePdf(data);
+              if (_filteredItems.isNotEmpty) {
+                _generateAndSharePdf(_filteredItems);
               } else {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('لا توجد بيانات لمشاركتها')),
@@ -361,25 +688,91 @@ class _SupplierPurchasesScreenState extends State<SupplierPurchasesScreen> {
               );
             }
 
-            final purchases = snapshot.data!;
+            // تخزين البيانات الأصلية
+            if (_allItems.isEmpty) {
+              _allItems = snapshot.data!;
+              _filteredItems = List.from(_allItems);
+            }
+
+            final displayItems = _filteredItems;
+
+            if (displayItems.isEmpty && _isFiltered) {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.filter_alt_off,
+                        size: 48, color: Colors.grey),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'لا توجد بيانات في النطاق الزمني المحدد',
+                      style: TextStyle(fontSize: 16, color: Colors.grey),
+                    ),
+                    const SizedBox(height: 8),
+                    TextButton(
+                      onPressed: _clearFilter,
+                      child: const Text('مسح الفلتر'),
+                    ),
+                  ],
+                ),
+              );
+            }
 
             // --- حساب مجاميع المشتريات UI ---
             double totalStanding = 0;
             double totalNet = 0;
             double totalCount = 0;
             double totalGrand = 0;
-            for (var item in purchases) {
+            for (var item in displayItems) {
               totalStanding += double.tryParse(item.standing) ?? 0;
               totalNet += double.tryParse(item.net) ?? 0;
               totalCount += double.tryParse(item.count) ?? 0;
               totalGrand += double.tryParse(item.total) ?? 0;
             }
 
+            final bool hasFilter = _filterFrom != null || _filterTo != null;
+
             return SingleChildScrollView(
               child: Padding(
                 padding: const EdgeInsets.all(8.0),
                 child: Column(
                   children: [
+                    // شريط الفلتر الفعّال
+                    if (hasFilter)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.red[50],
+                            border: Border.all(color: Colors.red[300]!),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(Icons.filter_alt,
+                                  color: Colors.red[700], size: 16),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  'الفلتر: '
+                                  '${_filterFrom != null ? '${_filterFrom!.year}/${_filterFrom!.month}/${_filterFrom!.day}' : '—'}'
+                                  ' ← '
+                                  '${_filterTo != null ? '${_filterTo!.year}/${_filterTo!.month}/${_filterTo!.day}' : '—'}',
+                                  style: TextStyle(
+                                      color: Colors.red[800], fontSize: 12),
+                                ),
+                              ),
+                              GestureDetector(
+                                onTap: _clearFilter,
+                                child: Icon(Icons.close,
+                                    color: Colors.red[700], size: 16),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                     // --- جدول المشتريات UI ---
                     Container(
                       decoration: BoxDecoration(
@@ -403,11 +796,11 @@ class _SupplierPurchasesScreenState extends State<SupplierPurchasesScreen> {
                               ],
                             ),
                           ),
-                          ...purchases.map((item) => Container(
+                          ...displayItems.map((item) => Container(
                                 padding:
                                     const EdgeInsets.symmetric(vertical: 8),
                                 decoration: BoxDecoration(
-                                  color: purchases.indexOf(item) % 2 == 0
+                                  color: displayItems.indexOf(item) % 2 == 0
                                       ? Colors.white
                                       : Colors.red.shade50,
                                   border: Border(

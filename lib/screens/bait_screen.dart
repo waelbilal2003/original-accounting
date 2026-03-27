@@ -104,8 +104,7 @@ class _BaitScreenState extends State<BaitScreen> {
                         border: Border.all(color: Colors.teal.shade200)),
                     child: Row(
                       children: [
-                        _buildHeaderCell('المادة', 3), // مساحة أكبر للمادة
-                        _buildHeaderCell('الاستلام', 2),
+                        _buildHeaderCell('المادة', 4), // زيادة المساحة
                         _buildHeaderCell('المشتريات', 2),
                         _buildHeaderCell('المبيعات', 2),
                         _buildHeaderCell('البايت', 2),
@@ -133,9 +132,7 @@ class _BaitScreenState extends State<BaitScreen> {
                           ),
                           child: Row(
                             children: [
-                              _buildDataCell(data.materialName, 3),
-                              _buildDataCell(
-                                  data.receiptsCount.toStringAsFixed(0), 2),
+                              _buildDataCell(data.materialName, 4),
                               _buildDataCell(
                                   data.purchasesCount.toStringAsFixed(0), 2),
                               _buildDataCell(

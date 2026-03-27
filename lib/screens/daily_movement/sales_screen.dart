@@ -138,8 +138,10 @@ class _SalesScreenState extends State<SalesScreen> {
 
   @override
   void dispose() {
-    // إزالة جميع مراجع الاقتراحات العمودية
-    _saveCurrentRecord(silent: true);
+    // حفظ جميع التغييرات بما فيها حقل نقدي/دين عند الخروج
+    if (_hasUnsavedChanges) {
+      _saveCurrentRecord(silent: true);
+    }
 
     for (var row in rowControllers) {
       for (var controller in row) {
@@ -162,7 +164,6 @@ class _SalesScreenState extends State<SalesScreen> {
     _horizontalScrollController.dispose();
     _scrollController.dispose();
 
-    // تحرير متحكم الاقتراحات الأفقية
     _horizontalSuggestionsController.dispose();
 
     super.dispose();
@@ -311,14 +312,14 @@ class _SalesScreenState extends State<SalesScreen> {
   // تحديث اقتراحات المادة - مثل purchases_screen بالضبط
   void _updateMaterialSuggestions(int rowIndex) async {
     final query = rowControllers[rowIndex][0].text;
-    if (query.length >= 1) {
+    if (query.length >= 3) {
+      // تغيير من 1 إلى 3
       final suggestions =
           await getEnhancedSuggestions(_materialIndexService, query);
       if (mounted) {
         setState(() {
           _materialSuggestions = suggestions;
           _activeMaterialRowIndex = rowIndex;
-          // عرض الاقتراحات تلقائياً عند وجودها
           if (suggestions.isNotEmpty) {
             _toggleFullScreenSuggestions(type: 'material', show: true);
           } else {
@@ -327,7 +328,6 @@ class _SalesScreenState extends State<SalesScreen> {
         });
       }
     } else {
-      // إخفاء الاقتراحات إذا كان الحقل فارغاً
       if (mounted) {
         setState(() {
           _materialSuggestions = [];
@@ -341,14 +341,14 @@ class _SalesScreenState extends State<SalesScreen> {
   // تحديث اقتراحات العبوة - مثل purchases_screen بالضبط
   void _updatePackagingSuggestions(int rowIndex) async {
     final query = rowControllers[rowIndex][2].text;
-    if (query.length >= 1) {
+    if (query.length >= 3) {
+      // تغيير من 1 إلى 3
       final suggestions =
           await getEnhancedSuggestions(_packagingIndexService, query);
       if (mounted) {
         setState(() {
           _packagingSuggestions = suggestions;
           _activePackagingRowIndex = rowIndex;
-          // عرض الاقتراحات تلقائياً عند وجودها
           if (suggestions.isNotEmpty) {
             _toggleFullScreenSuggestions(type: 'packaging', show: true);
           } else {
@@ -357,7 +357,6 @@ class _SalesScreenState extends State<SalesScreen> {
         });
       }
     } else {
-      // إخفاء الاقتراحات إذا كان الحقل فارغاً
       if (mounted) {
         setState(() {
           _packagingSuggestions = [];
@@ -464,7 +463,7 @@ class _SalesScreenState extends State<SalesScreen> {
   // حفظ المادة في الفهرس
   void _saveMaterialToIndex(String material) {
     final trimmedMaterial = material.trim();
-    if (trimmedMaterial.length > 1) {
+    if (trimmedMaterial.length >= 3) {
       _materialIndexService.saveMaterial(trimmedMaterial);
     }
   }
@@ -472,7 +471,7 @@ class _SalesScreenState extends State<SalesScreen> {
   // حفظ العبوة في الفهرس
   void _savePackagingToIndex(String packaging) {
     final trimmedPackaging = packaging.trim();
-    if (trimmedPackaging.length > 1) {
+    if (trimmedPackaging.length >= 3) {
       _packagingIndexService.savePackaging(trimmedPackaging);
     }
   }
@@ -804,34 +803,42 @@ class _SalesScreenState extends State<SalesScreen> {
     if (!_canEditRow(rowIndex)) return;
 
     if (colIndex == 0) {
+      // لا نحفظ الكلمات الأقل من 3 أحرف
+      if (value.trim().length >= 3) {
+        _saveMaterialToIndex(value);
+      }
       if (_materialSuggestions.isNotEmpty) {
         _selectMaterialSuggestion(_materialSuggestions[0], rowIndex);
         return;
       }
-      if (value.trim().length > 1) _saveMaterialToIndex(value);
       if (rowFocusNodes[rowIndex].length > 1) {
         FocusScope.of(context).requestFocus(rowFocusNodes[rowIndex][1]);
       }
     } else if (colIndex == 2) {
+      // لا نحفظ الكلمات الأقل من 3 أحرف
+      if (value.trim().length >= 3) {
+        _savePackagingToIndex(value);
+      }
       if (_packagingSuggestions.isNotEmpty) {
         _selectPackagingSuggestion(_packagingSuggestions[0], rowIndex);
         return;
       }
-      if (value.trim().length > 1) _savePackagingToIndex(value);
       if (rowFocusNodes[rowIndex].length > 3) {
         FocusScope.of(context).requestFocus(rowFocusNodes[rowIndex][3]);
       }
     } else if (colIndex == 5) {
       _showCashOrDebtDialog(rowIndex);
     } else if (colIndex == 7) {
-      // ✅ حفظ اسم الزبون أولاً
+      // ✅ حفظ اسم الزبون فقط إذا كان طوله 3 أحرف أو أكثر
       final customerName = rowControllers[rowIndex][7].text.trim();
       if (customerName.isNotEmpty) {
         setState(() {
           customerNames[rowIndex] = customerName;
           _hasUnsavedChanges = true;
         });
-        if (customerName.length > 1) _saveCustomerToIndex(customerName);
+        if (customerName.length >= 3) {
+          _saveCustomerToIndex(customerName);
+        }
       }
       // ✅ إنشاء صف جديد مباشرة بدون نافذة فوارغ
       _addNewRow();
@@ -1492,7 +1499,7 @@ class _SalesScreenState extends State<SalesScreen> {
   // حفظ الزبون في الفهرس
   void _saveCustomerToIndex(String customer) {
     final trimmedCustomer = customer.trim();
-    if (trimmedCustomer.length > 1) {
+    if (trimmedCustomer.length >= 3) {
       _customerIndexService.saveCustomer(trimmedCustomer);
     }
   }

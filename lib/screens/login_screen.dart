@@ -82,7 +82,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
     if (_isLoggedIn) {
       // الانتقال إلى DateSelectionScreen بعد تسجيل الدخول
       return DateSelectionScreen(
-        storeType: widget.storeType ?? 'نوع المتجر',
+        storeType: widget.storeType ?? 'الأصلي',
         storeName: widget.storeName ?? 'اسم المتجر',
         sellerName: widget.sellerName,
       );

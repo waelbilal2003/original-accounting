@@ -32,6 +32,16 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
   late Future<List<InvoiceItem>> _invoiceDataFuture;
   double? _customerBalance;
 
+  // متغيرات الفلترة
+  DateTime? _filterFrom;
+  DateTime? _filterTo;
+  List<InvoiceItem> _allItems = [];
+  List<InvoiceItem> _filteredItems = [];
+  bool _isFiltered = false;
+
+  // تخزين التواريخ لكل عنصر (نفترض أن جميع العناصر لها نفس تاريخ الشاشة)
+  // للفلترة الحقيقية، نحتاج إلى تعديل النموذج ليشمل التاريخ
+
   @override
   void initState() {
     super.initState();
@@ -55,12 +65,295 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
     }
   }
 
+  // دالة تطبيق الفلترة - ملاحظة: بما أننا لا نملك تاريخ حقيقي لكل عنصر،
+  // الفلترة هنا ستكون على أساس تاريخ الشاشة فقط
+  void _applyFilter() {
+    if (!mounted) return;
+
+    // تحويل تاريخ الشاشة إلى DateTime للمقارنة
+    final screenDate = _parseDateFromString(widget.selectedDate);
+
+    setState(() {
+      if (_filterFrom == null && _filterTo == null) {
+        _filteredItems = List<InvoiceItem>.from(_allItems);
+        _isFiltered = false;
+      } else {
+        // بما أن جميع العناصر لها نفس تاريخ الشاشة، نتحقق إذا كان تاريخ الشاشة ضمن النطاق
+        if (screenDate != null) {
+          final day =
+              DateTime(screenDate.year, screenDate.month, screenDate.day);
+          bool isInRange = true;
+          if (_filterFrom != null && day.isBefore(_filterFrom!))
+            isInRange = false;
+          if (_filterTo != null && day.isAfter(_filterTo!)) isInRange = false;
+
+          _filteredItems = isInRange ? List<InvoiceItem>.from(_allItems) : [];
+        } else {
+          _filteredItems = [];
+        }
+        _isFiltered = true;
+      }
+    });
+  }
+
+  void _clearFilter() {
+    setState(() {
+      _filterFrom = null;
+      _filterTo = null;
+    });
+    _applyFilter();
+  }
+
+  DateTime? _parseDateFromString(String dateStr) {
+    try {
+      final parts = dateStr.split('/');
+      if (parts.length != 3) return null;
+      return DateTime(
+          int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2]));
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // نافذة اختيار نطاق التاريخ
+  Future<void> _showDateRangeDialog() async {
+    final now = DateTime.now();
+    DateTime tempFrom = _filterFrom ?? now;
+    DateTime tempTo = _filterTo ?? now;
+
+    DateTime _clampDay(int y, int m, int d) {
+      final max = DateUtils.getDaysInMonth(y, m);
+      return DateTime(y, m, d > max ? max : d);
+    }
+
+    const months = [
+      'يناير',
+      'فبراير',
+      'مارس',
+      'أبريل',
+      'مايو',
+      'يونيو',
+      'يوليو',
+      'أغسطس',
+      'سبتمبر',
+      'أكتوبر',
+      'نوفمبر',
+      'ديسمبر'
+    ];
+
+    Widget miniPicker({
+      required String label,
+      required String display,
+      required VoidCallback onUp,
+      required VoidCallback onDown,
+      required Color color,
+    }) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(label,
+              style: TextStyle(
+                  fontSize: 10, fontWeight: FontWeight.bold, color: color)),
+          const SizedBox(height: 2),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.grey[300]!),
+            ),
+            child: Column(
+              children: [
+                SizedBox(
+                  height: 28,
+                  width: 28,
+                  child: IconButton(
+                    padding: EdgeInsets.zero,
+                    icon: Icon(Icons.arrow_drop_up,
+                        size: 22, color: Colors.green[600]),
+                    onPressed: onUp,
+                  ),
+                ),
+                SizedBox(
+                  height: 26,
+                  child: Center(
+                    child: Text(display,
+                        style: const TextStyle(
+                            fontSize: 12, fontWeight: FontWeight.bold)),
+                  ),
+                ),
+                SizedBox(
+                  height: 28,
+                  width: 28,
+                  child: IconButton(
+                    padding: EdgeInsets.zero,
+                    icon: Icon(Icons.arrow_drop_down,
+                        size: 22, color: Colors.red[600]),
+                    onPressed: onDown,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+
+    Widget datePicker({
+      required String sectionLabel,
+      required DateTime date,
+      required Color color,
+      required void Function(DateTime) onChanged,
+    }) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.calendar_today, size: 13, color: color),
+              const SizedBox(width: 4),
+              Text(sectionLabel,
+                  style: TextStyle(
+                      fontSize: 12, fontWeight: FontWeight.bold, color: color)),
+              const SizedBox(width: 8),
+              Text(
+                '${date.year}/${date.month}/${date.day}',
+                style: TextStyle(
+                    fontSize: 12, color: color, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              miniPicker(
+                label: 'اليوم',
+                display: date.day.toString(),
+                color: color,
+                onUp: () =>
+                    onChanged(_clampDay(date.year, date.month, date.day + 1)),
+                onDown: () =>
+                    onChanged(_clampDay(date.year, date.month, date.day - 1)),
+              ),
+              miniPicker(
+                label: 'الشهر',
+                display: months[date.month - 1],
+                color: color,
+                onUp: () {
+                  final m = date.month < 12 ? date.month + 1 : 1;
+                  onChanged(_clampDay(date.year, m, date.day));
+                },
+                onDown: () {
+                  final m = date.month > 1 ? date.month - 1 : 12;
+                  onChanged(_clampDay(date.year, m, date.day));
+                },
+              ),
+              miniPicker(
+                label: 'السنة',
+                display: date.year.toString(),
+                color: color,
+                onUp: () =>
+                    onChanged(_clampDay(date.year + 1, date.month, date.day)),
+                onDown: () =>
+                    onChanged(_clampDay(date.year - 1, date.month, date.day)),
+              ),
+            ],
+          ),
+        ],
+      );
+    }
+
+    await showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(builder: (ctx, setDialogState) {
+          return Directionality(
+            textDirection: TextDirection.rtl,
+            child: AlertDialog(
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16)),
+              titlePadding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              contentPadding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              title: const Row(
+                children: [
+                  Icon(Icons.date_range, color: Colors.indigo),
+                  SizedBox(width: 8),
+                  Text('فلترة بالتاريخ',
+                      style:
+                          TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  datePicker(
+                    sectionLabel: 'من تاريخ',
+                    date: tempFrom,
+                    color: Colors.indigo[700]!,
+                    onChanged: (d) => setDialogState(() => tempFrom = d),
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8),
+                    child: Divider(height: 1),
+                  ),
+                  datePicker(
+                    sectionLabel: 'إلى تاريخ',
+                    date: tempTo,
+                    color: Colors.indigo[800]!,
+                    onChanged: (d) => setDialogState(() => tempTo = d),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('إلغاء'),
+                ),
+                TextButton(
+                  onPressed: () {
+                    _clearFilter();
+                    Navigator.pop(ctx);
+                  },
+                  child: const Text('مسح الفلتر',
+                      style: TextStyle(color: Colors.red)),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.indigo[700]),
+                  onPressed: () {
+                    if (tempFrom.isAfter(tempTo)) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content:
+                              Text('تاريخ البداية يجب أن يكون قبل النهاية'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                      return;
+                    }
+                    setState(() {
+                      _filterFrom = tempFrom;
+                      _filterTo = tempTo;
+                    });
+                    _applyFilter();
+                    Navigator.pop(ctx);
+                  },
+                  child: const Text('تطبيق',
+                      style: TextStyle(color: Colors.white)),
+                ),
+              ],
+            ),
+          );
+        });
+      },
+    );
+  }
+
   // --- دالة توليد الـ PDF والمشاركة ---
   Future<void> _generateAndSharePdf(
       List<InvoiceItem> items, double? customerBalance) async {
     final pdf = pw.Document();
 
-    // 1. تحميل الخط العربي
     var arabicFont;
     try {
       final fontData = await rootBundle.load("assets/fonts/Cairo-Regular.ttf");
@@ -70,12 +363,11 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
       debugPrint("Error loading font: $e");
     }
 
-    // حساب المجاميع
     double totalCount = 0;
     double totalStanding = 0;
     double totalNet = 0;
-
     double grandTotal = 0;
+
     for (var item in items) {
       totalStanding += double.tryParse(item.standing) ?? 0;
       totalNet += double.tryParse(item.net) ?? 0;
@@ -83,7 +375,17 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
       grandTotal += double.tryParse(item.total) ?? 0;
     }
 
-    // تعريف الألوان
+    String filterDesc = 'الفترة: حتى تاريخ ${widget.selectedDate}';
+    if (_filterFrom != null || _filterTo != null) {
+      final from = _filterFrom != null
+          ? '${_filterFrom!.year}/${_filterFrom!.month}/${_filterFrom!.day}'
+          : 'البداية';
+      final to = _filterTo != null
+          ? '${_filterTo!.year}/${_filterTo!.month}/${_filterTo!.day}'
+          : 'النهاية';
+      filterDesc = 'الفترة: من $from إلى $to';
+    }
+
     final PdfColor headerColor = PdfColor.fromInt(0xFF5C6BC0);
     final PdfColor headerTextColor = PdfColors.white;
     final PdfColor rowEvenColor = PdfColors.white;
@@ -109,7 +411,6 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
               textDirection: pw.TextDirection.rtl,
               child: pw.Column(
                 children: [
-                  // --- العناوين ---
                   pw.Center(
                     child: pw.Text(
                       'فاتورة الزبون ${widget.customerName}',
@@ -123,29 +424,26 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
                   pw.SizedBox(height: 5),
                   pw.Center(
                     child: pw.Text(
-                      'بتاريخ ${widget.selectedDate} لمحل ${widget.storeName}',
+                      '${filterDesc} لمحل ${widget.storeName}',
                       style: const pw.TextStyle(
                           fontSize: 14, color: PdfColors.grey700),
                       textDirection: pw.TextDirection.rtl,
                     ),
                   ),
                   pw.SizedBox(height: 15),
-
-                  // --- الجدول (معكوس) ---
                   pw.Table(
                     border: pw.TableBorder.all(color: borderColor, width: 0.5),
                     columnWidths: {
-                      0: const pw.FlexColumnWidth(3), // الإجمالي
-                      1: const pw.FlexColumnWidth(2), // السعر
-                      2: const pw.FlexColumnWidth(2), // الصافي
-                      3: const pw.FlexColumnWidth(2), // القائم
-                      4: const pw.FlexColumnWidth(3), // العبوة
-                      5: const pw.FlexColumnWidth(2), // العدد
-                      6: const pw.FlexColumnWidth(4), // المادة
-                      7: const pw.FlexColumnWidth(1), // ت
+                      0: const pw.FlexColumnWidth(3),
+                      1: const pw.FlexColumnWidth(2),
+                      2: const pw.FlexColumnWidth(2),
+                      3: const pw.FlexColumnWidth(2),
+                      4: const pw.FlexColumnWidth(3),
+                      5: const pw.FlexColumnWidth(2),
+                      6: const pw.FlexColumnWidth(4),
+                      7: const pw.FlexColumnWidth(1),
                     },
                     children: [
-                      // رأس الجدول (معكوس)
                       pw.TableRow(
                         decoration: pw.BoxDecoration(color: headerColor),
                         children: [
@@ -159,7 +457,6 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
                           _buildPdfHeaderCell('ت', headerTextColor),
                         ],
                       ),
-                      // صفوف البيانات (معكوسة)
                       ...items.asMap().entries.map((entry) {
                         final index = entry.key;
                         final item = entry.value;
@@ -181,7 +478,6 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
                           ],
                         );
                       }).toList(),
-                      // صف المجموع الفرعي (معكوس)
                       pw.TableRow(
                         decoration: pw.BoxDecoration(color: totalRowColor),
                         children: [
@@ -203,8 +499,6 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
                     ],
                   ),
                   pw.SizedBox(height: 20),
-
-                  // المجموع النهائي
                   pw.Container(
                     width: double.infinity,
                     padding: const pw.EdgeInsets.all(10),
@@ -238,11 +532,9 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
     await file.writeAsBytes(await pdf.save());
 
     await Share.shareXFiles([XFile(file.path)],
-        text:
-            'فاتورة الزبون ${widget.customerName} بتاريخ ${widget.selectedDate}');
+        text: 'فاتورة الزبون ${widget.customerName} - ${filterDesc}');
   }
 
-  // --- الدوال المساعدة للـ PDF ---
   pw.Widget _buildPdfHeaderCell(String text, PdfColor color) {
     return pw.Container(
       padding: const pw.EdgeInsets.all(4),
@@ -275,7 +567,6 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
     );
   }
 
-  // --- التعديلات على الـ UI ---
   Widget _buildHeaderCell(String text, int flex) {
     return Expanded(
       flex: flex,
@@ -285,7 +576,7 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
         style: const TextStyle(
           fontWeight: FontWeight.bold,
           color: Colors.white,
-          fontSize: 12,
+          fontSize: 18,
         ),
       ),
     );
@@ -302,7 +593,7 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
         style: TextStyle(
           color: color,
           fontWeight: fontWeight,
-          fontSize: 12,
+          fontSize: 17,
         ),
       ),
     );
@@ -318,12 +609,40 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
         ),
         actions: [
           IconButton(
+            icon: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                const Icon(Icons.date_range),
+                if (_isFiltered)
+                  Positioned(
+                    top: -4,
+                    left: -4,
+                    child: Container(
+                      width: 10,
+                      height: 10,
+                      decoration: const BoxDecoration(
+                        color: Colors.orange,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            tooltip: 'فلترة بالتاريخ',
+            onPressed: _showDateRangeDialog,
+          ),
+          if (_isFiltered)
+            IconButton(
+              icon: const Icon(Icons.filter_alt_off),
+              tooltip: 'مسح الفلتر',
+              onPressed: _clearFilter,
+            ),
+          IconButton(
             icon: const Icon(Icons.picture_as_pdf),
             tooltip: 'مشاركة PDF',
             onPressed: () async {
-              final data = await _invoiceDataFuture;
-              if (data.isNotEmpty) {
-                _generateAndSharePdf(data, _customerBalance);
+              if (_filteredItems.isNotEmpty) {
+                _generateAndSharePdf(_filteredItems, _customerBalance);
               } else {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('لا توجد بيانات لمشاركتها')),
@@ -368,15 +687,40 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
               );
             }
 
-            final invoiceItems = snapshot.data!;
+            if (_allItems.isEmpty) {
+              _allItems = snapshot.data!;
+              _filteredItems = List.from(_allItems);
+            }
 
-            // --- حساب المجاميع ---
+            final displayItems = _filteredItems;
+
+            if (displayItems.isEmpty && _isFiltered) {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.filter_alt_off,
+                        size: 48, color: Colors.grey),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'لا توجد بيانات في النطاق الزمني المحدد',
+                      style: TextStyle(fontSize: 16, color: Colors.grey),
+                    ),
+                    const SizedBox(height: 8),
+                    TextButton(
+                      onPressed: _clearFilter,
+                      child: const Text('مسح الفلتر'),
+                    ),
+                  ],
+                ),
+              );
+            }
+
             double totalStanding = 0;
             double totalNet = 0;
-
             double grandTotal = 0;
             int totalCount = 0;
-            for (var item in invoiceItems) {
+            for (var item in displayItems) {
               totalStanding += double.tryParse(item.standing) ?? 0;
               totalNet += double.tryParse(item.net) ?? 0;
               totalCount += int.tryParse(item.count) ?? 0;
@@ -387,11 +731,47 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
                 ? _customerBalance!.toStringAsFixed(2)
                 : '---';
 
+            final bool hasFilter = _filterFrom != null || _filterTo != null;
+
             return Padding(
               padding: const EdgeInsets.all(8.0),
               child: Column(
                 children: [
-                  // 1. رأس الجدول
+                  if (hasFilter)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.indigo[50],
+                          border: Border.all(color: Colors.indigo[300]!),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.filter_alt,
+                                color: Colors.indigo[700], size: 16),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                'الفلتر: '
+                                '${_filterFrom != null ? '${_filterFrom!.year}/${_filterFrom!.month}/${_filterFrom!.day}' : '—'}'
+                                ' ← '
+                                '${_filterTo != null ? '${_filterTo!.year}/${_filterTo!.month}/${_filterTo!.day}' : '—'}',
+                                style: TextStyle(
+                                    color: Colors.indigo[800], fontSize: 12),
+                              ),
+                            ),
+                            GestureDetector(
+                              onTap: _clearFilter,
+                              child: Icon(Icons.close,
+                                  color: Colors.indigo[700], size: 16),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                   Container(
                     padding: const EdgeInsets.symmetric(
                         vertical: 12.0, horizontal: 4.0),
@@ -415,15 +795,11 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
                       ],
                     ),
                   ),
-
-                  // 2. قائمة البيانات
                   Expanded(
                     child: ListView.builder(
-                      itemCount:
-                          invoiceItems.length + 1, // +1 for the total row
+                      itemCount: displayItems.length + 1,
                       itemBuilder: (context, index) {
-                        // --- سطر المجموع ---
-                        if (index == invoiceItems.length) {
+                        if (index == displayItems.length) {
                           return Container(
                             padding: const EdgeInsets.symmetric(
                                 vertical: 10.0, horizontal: 4.0),
@@ -439,17 +815,17 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
                               children: [
                                 _buildDataCell('المجموع', 1,
                                     fontWeight: FontWeight.bold),
-                                _buildDataCell('', 4), // المادة
+                                _buildDataCell('', 4),
                                 _buildDataCell(totalCount.toStringAsFixed(0), 2,
                                     fontWeight: FontWeight.bold),
-                                _buildDataCell('', 3), // العبوة
+                                _buildDataCell('', 3),
                                 _buildDataCell(
                                     totalStanding.toStringAsFixed(2), 2,
                                     fontWeight: FontWeight.bold),
                                 _buildDataCell(totalNet.toStringAsFixed(2), 2,
                                     fontWeight: FontWeight.bold),
                                 _buildDataCell('', 2,
-                                    fontWeight: FontWeight.bold), // السعر فارغ
+                                    fontWeight: FontWeight.bold),
                                 _buildDataCell(grandTotal.toStringAsFixed(2), 3,
                                     fontWeight: FontWeight.bold,
                                     color: Colors.indigo.shade900),
@@ -458,8 +834,7 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
                           );
                         }
 
-                        // --- أسطر البيانات العادية ---
-                        final item = invoiceItems[index];
+                        final item = displayItems[index];
                         return Container(
                           padding: const EdgeInsets.symmetric(
                               vertical: 10.0, horizontal: 4.0),
@@ -494,8 +869,6 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
                       },
                     ),
                   ),
-
-                  // 3. المجموع النهائي
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(16.0),

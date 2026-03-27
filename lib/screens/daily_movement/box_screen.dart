@@ -1283,12 +1283,35 @@ class _BoxScreenState extends State<BoxScreen> {
         ],
       ),
       body: _buildMainContent(),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _addNewRow,
-        backgroundColor: const Color.fromARGB(255, 220, 145, 5),
-        foregroundColor: Colors.white,
-        child: const Icon(Icons.add),
-      ),
+      floatingActionButton: MediaQuery.of(context).viewInsets.bottom > 0
+          ? null
+          : Container(
+              margin: const EdgeInsets.only(bottom: 16, right: 16),
+              child: Material(
+                color: const Color.fromARGB(
+                    255, 14, 82, 184), // الحفاظ على اللون الأزرق الحالي
+                borderRadius: BorderRadius.circular(12),
+                elevation: 8,
+                child: InkWell(
+                  onTap: _addNewRow,
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 28, vertical: 16),
+                    child: const Text(
+                      'إضافة',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.startDocked,
+      resizeToAvoidBottomInset: true,
     );
   }
 
