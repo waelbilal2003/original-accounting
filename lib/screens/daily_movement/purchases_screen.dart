@@ -1538,11 +1538,25 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
         arabicFont = pw.Font.courier();
       }
 
+      // حساب المجاميع من الصفوف الفعلية
+      double totalCount = 0;
+      double totalBase = 0;
+      double totalNet = 0;
+      double totalGrand = 0;
+
+      for (var controllers in rowControllers) {
+        totalCount += double.tryParse(controllers[3].text) ?? 0; // العدد
+        totalBase += double.tryParse(controllers[5].text) ?? 0; // القائم
+        totalNet += double.tryParse(controllers[6].text) ?? 0; // الصافي
+        totalGrand += double.tryParse(controllers[8].text) ?? 0; // الإجمالي
+      }
+
       final PdfColor headerColor = PdfColor.fromInt(0xFFD32F2F);
       final PdfColor headerTextColor = PdfColors.white;
       final PdfColor rowEvenColor = PdfColors.white;
       final PdfColor rowOddColor = PdfColor.fromInt(0xFFFFCDD2);
       final PdfColor borderColor = PdfColor.fromInt(0xFFE0E0E0);
+      final PdfColor totalRowColor = PdfColor.fromInt(0xFFEF9A9A);
 
       pdf.addPage(
         pw.MultiPage(
@@ -1570,79 +1584,77 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
                       border:
                           pw.TableBorder.all(color: borderColor, width: 0.5),
                       columnWidths: {
-                        0: const pw.FlexColumnWidth(2),
-                        1: const pw.FlexColumnWidth(2),
-                        2: const pw.FlexColumnWidth(3),
-                        3: const pw.FlexColumnWidth(2),
-                        4: const pw.FlexColumnWidth(2),
-                        5: const pw.FlexColumnWidth(2),
-                        6: const pw.FlexColumnWidth(3),
-                        7: const pw.FlexColumnWidth(2),
-                        8: const pw.FlexColumnWidth(3),
-                        9: const pw.FlexColumnWidth(4),
-                        10: const pw.FlexColumnWidth(1),
+                        0: const pw.FlexColumnWidth(4), // المادة
+                        1: const pw.FlexColumnWidth(3), // المورد
+                        2: const pw.FlexColumnWidth(2), // العدد
+                        3: const pw.FlexColumnWidth(3), // العبوة
+                        4: const pw.FlexColumnWidth(2), // القائم
+                        5: const pw.FlexColumnWidth(2), // الصافي
+                        6: const pw.FlexColumnWidth(2), // السعر
+                        7: const pw.FlexColumnWidth(3), // الإجمالي
+                        8: const pw.FlexColumnWidth(2), // نقدي/دين
                       },
                       children: [
+                        // رأس الجدول
                         pw.TableRow(
                           decoration: pw.BoxDecoration(color: headerColor),
                           children: [
-                            _buildPdfHeaderCell('نوع', headerTextColor),
-                            _buildPdfHeaderCell('الإجمالي', headerTextColor),
-                            _buildPdfHeaderCell('السعر', headerTextColor),
-                            _buildPdfHeaderCell('الصافي', headerTextColor),
-                            _buildPdfHeaderCell('القائم', headerTextColor),
-                            _buildPdfHeaderCell('العبوة', headerTextColor),
-                            _buildPdfHeaderCell('العدد', headerTextColor),
-                            _buildPdfHeaderCell('المورد', headerTextColor),
                             _buildPdfHeaderCell('المادة', headerTextColor),
+                            _buildPdfHeaderCell('المورد', headerTextColor),
+                            _buildPdfHeaderCell('العدد', headerTextColor),
+                            _buildPdfHeaderCell('العبوة', headerTextColor),
+                            _buildPdfHeaderCell('القائم', headerTextColor),
+                            _buildPdfHeaderCell('الصافي', headerTextColor),
+                            _buildPdfHeaderCell('السعر', headerTextColor),
+                            _buildPdfHeaderCell('الإجمالي', headerTextColor),
+                            _buildPdfHeaderCell('نوع', headerTextColor),
                           ],
                         ),
+                        // صفوف البيانات
                         ...rowControllers.asMap().entries.map((entry) {
                           final index = entry.key;
                           final controllers = entry.value;
+                          // تخطي الصفوف الفارغة
                           if (controllers[1].text.isEmpty &&
                               controllers[3].text.isEmpty) {
                             return pw.TableRow(
-                                children: List.filled(11, pw.SizedBox()));
+                                children: List.filled(9, pw.SizedBox()));
                           }
                           final color =
                               index % 2 == 0 ? rowEvenColor : rowOddColor;
                           return pw.TableRow(
                             decoration: pw.BoxDecoration(color: color),
                             children: [
-                              _buildPdfCell(emptiesValues[index]),
-                              _buildPdfCell(cashOrDebtValues[index]),
-                              _buildPdfCell(controllers[8].text, isBold: true),
-                              _buildPdfCell(controllers[7].text),
-                              _buildPdfCell(controllers[6].text),
-                              _buildPdfCell(controllers[5].text),
-                              _buildPdfCell(controllers[4].text),
-                              _buildPdfCell(controllers[3].text),
-                              _buildPdfCell(controllers[2].text),
-                              _buildPdfCell(controllers[1].text),
-                              _buildPdfCell(controllers[0].text),
+                              _buildPdfCell(controllers[1].text), // المادة
+                              _buildPdfCell(controllers[2].text), // المورد
+                              _buildPdfCell(controllers[3].text), // العدد
+                              _buildPdfCell(controllers[4].text), // العبوة
+                              _buildPdfCell(controllers[5].text), // القائم
+                              _buildPdfCell(controllers[6].text), // الصافي
+                              _buildPdfCell(controllers[7].text), // السعر
+                              _buildPdfCell(controllers[8].text,
+                                  isBold: true), // الإجمالي
+                              _buildPdfCell(cashOrDebtValues[index]), // نوع
                             ],
                           );
                         }).toList(),
+                        // سطر المجاميع
                         pw.TableRow(
-                          decoration: pw.BoxDecoration(
-                              color: PdfColor.fromInt(0xFFEF9A9A)),
+                          decoration: pw.BoxDecoration(color: totalRowColor),
                           children: [
-                            _buildPdfCell(''),
-                            _buildPdfCell(''),
-                            _buildPdfCell(totalGrandController.text,
+                            _buildPdfCell('المجموع', isBold: true),
+                            _buildPdfCell('', isBold: true),
+                            _buildPdfCell(totalCount.toStringAsFixed(0),
                                 isBold: true),
-                            _buildPdfCell(''),
-                            _buildPdfCell(totalNetController.text,
+                            _buildPdfCell('', isBold: true),
+                            _buildPdfCell(totalBase.toStringAsFixed(2),
                                 isBold: true),
-                            _buildPdfCell(totalBaseController.text,
+                            _buildPdfCell(totalNet.toStringAsFixed(2),
                                 isBold: true),
-                            _buildPdfCell(''),
-                            _buildPdfCell(totalCountController.text,
+                            _buildPdfCell('', isBold: true),
+                            _buildPdfCell(totalGrand.toStringAsFixed(2),
                                 isBold: true),
-                            _buildPdfCell(''),
-                            _buildPdfCell(''),
-                            _buildPdfCell('م', isBold: true),
+                            _buildPdfCell('', isBold: true),
                           ],
                         ),
                       ],
@@ -1656,7 +1668,6 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
       );
 
       final output = await getTemporaryDirectory();
-      // *** إصلاح اسم الملف ***
       final safeDate = widget.selectedDate.replaceAll('/', '-');
       final file = File("${output.path}/يومية_مشتريات_$safeDate.pdf");
 

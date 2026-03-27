@@ -24,6 +24,7 @@ class _BaitScreenState extends State<BaitScreen> {
     _baitDataFuture = _baitService.getBaitDataForDate(widget.selectedDate);
   }
 
+  // دالة مساعدة لإنشاء خلية في رأس الجدول
   Widget _buildHeaderCell(String text, int flex) {
     return Expanded(
       flex: flex,
@@ -38,6 +39,7 @@ class _BaitScreenState extends State<BaitScreen> {
     );
   }
 
+  // دالة مساعدة لإنشاء خلية بيانات
   Widget _buildDataCell(String text, int flex,
       {Color color = Colors.black, FontWeight fontWeight = FontWeight.normal}) {
     return Expanded(
@@ -90,7 +92,7 @@ class _BaitScreenState extends State<BaitScreen> {
               padding: const EdgeInsets.all(8.0),
               child: Column(
                 children: [
-                  // رأس الجدول — بدون عمود الاستلام
+                  // 1. رأس الجدول
                   Container(
                     padding: const EdgeInsets.symmetric(vertical: 12.0),
                     decoration: BoxDecoration(
@@ -102,7 +104,8 @@ class _BaitScreenState extends State<BaitScreen> {
                         border: Border.all(color: Colors.teal.shade200)),
                     child: Row(
                       children: [
-                        _buildHeaderCell('المادة', 3),
+                        _buildHeaderCell('المادة', 3), // مساحة أكبر للمادة
+                        _buildHeaderCell('الاستلام', 2),
                         _buildHeaderCell('المشتريات', 2),
                         _buildHeaderCell('المبيعات', 2),
                         _buildHeaderCell('البايت', 2),
@@ -110,14 +113,12 @@ class _BaitScreenState extends State<BaitScreen> {
                     ),
                   ),
 
+                  // 2. قائمة البيانات القابلة للتمرير
                   Expanded(
                     child: ListView.builder(
                       itemCount: baitList.length,
                       itemBuilder: (context, index) {
                         final data = baitList[index];
-                        // البايت = المشتريات - المبيعات (بدون الاستلام)
-                        final double baitWithoutReceipts =
-                            data.purchasesCount - data.salesCount;
                         return Container(
                           padding: const EdgeInsets.symmetric(vertical: 10.0),
                           decoration: BoxDecoration(
@@ -134,13 +135,15 @@ class _BaitScreenState extends State<BaitScreen> {
                             children: [
                               _buildDataCell(data.materialName, 3),
                               _buildDataCell(
+                                  data.receiptsCount.toStringAsFixed(0), 2),
+                              _buildDataCell(
                                   data.purchasesCount.toStringAsFixed(0), 2),
                               _buildDataCell(
                                   data.salesCount.toStringAsFixed(0), 2),
                               _buildDataCell(
-                                baitWithoutReceipts.toStringAsFixed(0),
+                                data.baitValue.toStringAsFixed(0),
                                 2,
-                                color: baitWithoutReceipts >= 0
+                                color: data.baitValue >= 0
                                     ? Colors.green.shade800
                                     : Colors.red.shade800,
                                 fontWeight: FontWeight.bold,

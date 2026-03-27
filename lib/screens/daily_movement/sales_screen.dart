@@ -1655,14 +1655,14 @@ class _SalesScreenState extends State<SalesScreen> {
                         pw.TableRow(
                           decoration: pw.BoxDecoration(color: headerColor),
                           children: [
-                            _buildPdfHeaderCell('نوع', headerTextColor),
-                            _buildPdfHeaderCell('الإجمالي', headerTextColor),
-                            _buildPdfHeaderCell('السعر', headerTextColor),
-                            _buildPdfHeaderCell('الصافي', headerTextColor),
-                            _buildPdfHeaderCell('القائم', headerTextColor),
-                            _buildPdfHeaderCell('العبوة', headerTextColor),
-                            _buildPdfHeaderCell('العدد', headerTextColor),
                             _buildPdfHeaderCell('المادة', headerTextColor),
+                            _buildPdfHeaderCell('العدد', headerTextColor),
+                            _buildPdfHeaderCell('العبوة', headerTextColor),
+                            _buildPdfHeaderCell('القائم', headerTextColor),
+                            _buildPdfHeaderCell('الصافي', headerTextColor),
+                            _buildPdfHeaderCell('السعر', headerTextColor),
+                            _buildPdfHeaderCell('الإجمالي', headerTextColor),
+                            _buildPdfHeaderCell('نوع', headerTextColor),
                           ],
                         ),
                         ...rowControllers.asMap().entries.map((entry) {
@@ -1678,13 +1678,13 @@ class _SalesScreenState extends State<SalesScreen> {
                           return pw.TableRow(
                             decoration: pw.BoxDecoration(color: color),
                             children: [
-                              _buildPdfCell(controllers[0].text), // المادة
-                              _buildPdfCell(controllers[1].text), // العدد
-                              _buildPdfCell(controllers[2].text), // العبوة
+                              _buildPdfCell(controllers[6].text), // المادة
+                              _buildPdfCell(controllers[5].text), // العدد
+                              _buildPdfCell(controllers[4].text), // العبوة
                               _buildPdfCell(controllers[3].text), // القائم
-                              _buildPdfCell(controllers[4].text), // الصافي
-                              _buildPdfCell(controllers[5].text), // السعر
-                              _buildPdfCell(controllers[6].text,
+                              _buildPdfCell(controllers[2].text), // الصافي
+                              _buildPdfCell(controllers[1].text), // السعر
+                              _buildPdfCell(controllers[0].text,
                                   isBold: true), // الإجمالي
                               _buildPdfCell(
                                   cashOrDebtValues[index]), // نقدي/دين
@@ -1695,7 +1695,7 @@ class _SalesScreenState extends State<SalesScreen> {
                           decoration: pw.BoxDecoration(
                               color: PdfColor.fromInt(0xFFFFCC80)),
                           children: [
-                            _buildPdfCell('م', isBold: true),
+                            _buildPdfCell('المجموع', isBold: true),
                             _buildPdfCell(totalCountController.text,
                                 isBold: true),
                             _buildPdfCell(''),
@@ -1720,7 +1720,6 @@ class _SalesScreenState extends State<SalesScreen> {
       );
 
       final output = await getTemporaryDirectory();
-      // *** إصلاح اسم الملف ***
       final safeDate = widget.selectedDate.replaceAll('/', '-');
       final file = File("${output.path}/يومية_مبيعات_$safeDate.pdf");
 

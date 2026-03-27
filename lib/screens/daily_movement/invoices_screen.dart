@@ -55,7 +55,7 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
     }
   }
 
-  // --- دالة توليد الـ PDF والمشاركة (تم عكس الجدول يدوياً) ---
+  // --- دالة توليد الـ PDF والمشاركة ---
   Future<void> _generateAndSharePdf(
       List<InvoiceItem> items, double? customerBalance) async {
     final pdf = pw.Document();
@@ -131,40 +131,35 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
                   ),
                   pw.SizedBox(height: 15),
 
-                  // --- الجدول (تم عكسه يدوياً) ---
+                  // --- الجدول ---
                   pw.Table(
                     border: pw.TableBorder.all(color: borderColor, width: 0.5),
-                    // الترتيب الجديد: فوارغ، إجمالي، سعر، صافي، قائم، عبوة، عدد، س، مادة، ت
                     columnWidths: {
-                      0: const pw.FlexColumnWidth(3), // فوارغ (يسار)
-                      1: const pw.FlexColumnWidth(3), // الإجمالي
-                      2: const pw.FlexColumnWidth(2), // السعر
-                      3: const pw.FlexColumnWidth(2), // الصافي
+                      0: const pw.FlexColumnWidth(1), // ت
+                      1: const pw.FlexColumnWidth(4), // المادة
+                      2: const pw.FlexColumnWidth(2), // العدد
+                      3: const pw.FlexColumnWidth(3), // العبوة
                       4: const pw.FlexColumnWidth(2), // القائم
-                      5: const pw.FlexColumnWidth(3), // العبوة
-                      6: const pw.FlexColumnWidth(2), // العدد
-                      7: const pw.FlexColumnWidth(1), // س
-                      8: const pw.FlexColumnWidth(4), // المادة
-                      9: const pw.FlexColumnWidth(1), // ت (يمين)
+                      5: const pw.FlexColumnWidth(2), // الصافي
+                      6: const pw.FlexColumnWidth(2), // السعر
+                      7: const pw.FlexColumnWidth(3), // الإجمالي
                     },
                     children: [
-                      // رأس الجدول (معكوس)
+                      // رأس الجدول
                       pw.TableRow(
                         decoration: pw.BoxDecoration(color: headerColor),
                         children: [
-                          _buildPdfHeaderCell('فوارغ', headerTextColor),
-                          _buildPdfHeaderCell('الإجمالي', headerTextColor),
-                          _buildPdfHeaderCell('السعر', headerTextColor),
-                          _buildPdfHeaderCell('الصافي', headerTextColor),
-                          _buildPdfHeaderCell('القائم', headerTextColor),
-                          _buildPdfHeaderCell('العبوة', headerTextColor),
-                          _buildPdfHeaderCell('العدد', headerTextColor),
-                          _buildPdfHeaderCell('س', headerTextColor),
-                          _buildPdfHeaderCell('المادة', headerTextColor),
                           _buildPdfHeaderCell('ت', headerTextColor),
+                          _buildPdfHeaderCell('المادة', headerTextColor),
+                          _buildPdfHeaderCell('العدد', headerTextColor),
+                          _buildPdfHeaderCell('العبوة', headerTextColor),
+                          _buildPdfHeaderCell('القائم', headerTextColor),
+                          _buildPdfHeaderCell('الصافي', headerTextColor),
+                          _buildPdfHeaderCell('السعر', headerTextColor),
+                          _buildPdfHeaderCell('الإجمالي', headerTextColor),
                         ],
                       ),
-                      // صفوف البيانات (معكوسة)
+                      // صفوف البيانات
                       ...items.asMap().entries.map((entry) {
                         final index = entry.key;
                         final item = entry.value;
@@ -173,42 +168,36 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
                         return pw.TableRow(
                           decoration: pw.BoxDecoration(color: color),
                           children: [
-                            _buildPdfCell(item.empties),
+                            _buildPdfCell(item.serialNumber),
+                            _buildPdfCell(item.material),
+                            _buildPdfCell(item.count),
+                            _buildPdfCell(item.packaging),
+                            _buildPdfCell(item.standing),
+                            _buildPdfCell(item.net),
+                            _buildPdfCell(item.price),
                             _buildPdfCell(item.total,
                                 textColor: PdfColor.fromInt(0xFF1A237E),
                                 isBold: true),
-                            _buildPdfCell(item.price),
-                            _buildPdfCell(item.net),
-                            _buildPdfCell(item.standing),
-                            _buildPdfCell(item.packaging),
-                            _buildPdfCell(item.count),
-                            _buildPdfCell(item.sValue),
-                            _buildPdfCell(item.material),
-                            _buildPdfCell(item.serialNumber),
                           ],
                         );
                       }).toList(),
-                      // صف المجموع الفرعي (معكوس)
+                      // صف المجموع الفرعي
                       pw.TableRow(
                         decoration: pw.BoxDecoration(color: totalRowColor),
                         children: [
-                          _buildPdfCell(''), // فوارغ
-                          _buildPdfCell(grandTotal.toStringAsFixed(2),
-                              textColor: PdfColor.fromInt(0xFF1A237E),
-                              isBold: true), // الاجمالي
-                          _buildPdfCell('', isBold: true), // السعر (فارغ)
-                          _buildPdfCell(totalNet.toStringAsFixed(2),
-                              isBold: true), // الصافي
-                          _buildPdfCell(totalStanding.toStringAsFixed(2),
-                              isBold: true), // القائم
-                          _buildPdfCell(''), // العبوة
-
+                          _buildPdfCell('م', isBold: true),
+                          _buildPdfCell(''),
                           _buildPdfCell(totalCount.toStringAsFixed(0),
                               isBold: true),
-
-                          _buildPdfCell(''), // س
-                          _buildPdfCell(''), // المادة
-                          _buildPdfCell('م', isBold: true), // ت
+                          _buildPdfCell(''),
+                          _buildPdfCell(totalStanding.toStringAsFixed(2),
+                              isBold: true),
+                          _buildPdfCell(totalNet.toStringAsFixed(2),
+                              isBold: true),
+                          _buildPdfCell(''),
+                          _buildPdfCell(grandTotal.toStringAsFixed(2),
+                              textColor: PdfColor.fromInt(0xFF1A237E),
+                              isBold: true),
                         ],
                       ),
                     ],
@@ -253,7 +242,7 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
             'فاتورة الزبون ${widget.customerName} بتاريخ ${widget.selectedDate}');
   }
 
-  // --- الدوال المساعدة للـ PDF (محدثة) ---
+  // --- الدوال المساعدة للـ PDF ---
   pw.Widget _buildPdfHeaderCell(String text, PdfColor color) {
     return pw.Container(
       padding: const pw.EdgeInsets.all(4),
@@ -286,7 +275,7 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
     );
   }
 
-  // --- التعديلات على الـ UI (تبقى كما هي RTL بشكل طبيعي) ---
+  // --- التعديلات على الـ UI ---
   Widget _buildHeaderCell(String text, int flex) {
     return Expanded(
       flex: flex,
@@ -402,7 +391,7 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
               padding: const EdgeInsets.all(8.0),
               child: Column(
                 children: [
-                  // 1. رأس الجدول (الواجهة العادية - غير معكوسة لأنها تظهر بشكل صحيح)
+                  // 1. رأس الجدول
                   Container(
                     padding: const EdgeInsets.symmetric(
                         vertical: 12.0, horizontal: 4.0),
@@ -417,14 +406,12 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
                       children: [
                         _buildHeaderCell('ت', 1),
                         _buildHeaderCell('المادة', 4),
-                        _buildHeaderCell('س', 1),
                         _buildHeaderCell('العدد', 2),
                         _buildHeaderCell('العبوة', 3),
                         _buildHeaderCell('القائم', 2),
                         _buildHeaderCell('الصافي', 2),
                         _buildHeaderCell('السعر', 2),
                         _buildHeaderCell('الإجمالي', 3),
-                        _buildHeaderCell('فوارغ', 3),
                       ],
                     ),
                   ),
@@ -453,11 +440,8 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
                                 _buildDataCell('المجموع', 1,
                                     fontWeight: FontWeight.bold),
                                 _buildDataCell('', 4), // المادة
-                                _buildDataCell('', 1), // س
-
                                 _buildDataCell(totalCount.toStringAsFixed(0), 2,
                                     fontWeight: FontWeight.bold),
-
                                 _buildDataCell('', 3), // العبوة
                                 _buildDataCell(
                                     totalStanding.toStringAsFixed(2), 2,
@@ -469,7 +453,6 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
                                 _buildDataCell(grandTotal.toStringAsFixed(2), 3,
                                     fontWeight: FontWeight.bold,
                                     color: Colors.indigo.shade900),
-                                _buildDataCell('', 3), // فوارغ
                               ],
                             ),
                           );
@@ -494,7 +477,6 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
                             children: [
                               _buildDataCell(item.serialNumber, 1),
                               _buildDataCell(item.material, 4),
-                              _buildDataCell(item.sValue, 1),
                               _buildDataCell(item.count, 2),
                               _buildDataCell(item.packaging, 3),
                               _buildDataCell(item.standing, 2),
@@ -506,7 +488,6 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
                                 color: Colors.indigo.shade900,
                                 fontWeight: FontWeight.bold,
                               ),
-                              _buildDataCell(item.empties, 3),
                             ],
                           ),
                         );

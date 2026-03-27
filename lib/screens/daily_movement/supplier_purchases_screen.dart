@@ -106,39 +106,33 @@ class _SupplierPurchasesScreenState extends State<SupplierPurchasesScreen> {
                   ),
                   pw.SizedBox(height: 15),
 
-                  // --- الجدول (معكوس يدوياً) ---
+                  // --- الجدول ---
                   pw.Table(
                     border: pw.TableBorder.all(color: borderColor, width: 0.5),
-                    // تم عكس العروض لتتناسب مع عكس الأعمدة
-                    // الترتيب الجديد: فوارغ، إجمالي، سعر، صافي، قائم، عبوة، عدد، مادة، ت
                     columnWidths: {
-                      0: const pw.FlexColumnWidth(3), // فوارغ (يسار الصفحة)
-                      1: const pw.FlexColumnWidth(3), // الإجمالي
-                      2: const pw.FlexColumnWidth(2), // السعر
-                      3: const pw.FlexColumnWidth(2), // الصافي
-                      4: const pw.FlexColumnWidth(2), // القائم
-                      5: const pw.FlexColumnWidth(3), // العبوة
-                      6: const pw.FlexColumnWidth(2), // العدد
-                      7: const pw.FlexColumnWidth(4), // المادة
-                      8: const pw.FlexColumnWidth(1), // ت (يمين الصفحة)
+                      0: const pw.FlexColumnWidth(4), // المادة
+                      1: const pw.FlexColumnWidth(2), // العدد
+                      2: const pw.FlexColumnWidth(3), // العبوة
+                      3: const pw.FlexColumnWidth(2), // القائم
+                      4: const pw.FlexColumnWidth(2), // الصافي
+                      5: const pw.FlexColumnWidth(2), // السعر
+                      6: const pw.FlexColumnWidth(3), // الإجمالي
                     },
                     children: [
-                      // رأس الجدول (معكوس)
+                      // رأس الجدول
                       pw.TableRow(
                         decoration: pw.BoxDecoration(color: headerColor),
                         children: [
-                          _buildPdfHeaderCell('فوارغ', headerTextColor),
-                          _buildPdfHeaderCell('الإجمالي', headerTextColor),
-                          _buildPdfHeaderCell('السعر', headerTextColor),
-                          _buildPdfHeaderCell('الصافي', headerTextColor),
-                          _buildPdfHeaderCell('القائم', headerTextColor),
-                          _buildPdfHeaderCell('العبوة', headerTextColor),
-                          _buildPdfHeaderCell('العدد', headerTextColor),
                           _buildPdfHeaderCell('المادة', headerTextColor),
-                          _buildPdfHeaderCell('ت', headerTextColor),
+                          _buildPdfHeaderCell('العدد', headerTextColor),
+                          _buildPdfHeaderCell('العبوة', headerTextColor),
+                          _buildPdfHeaderCell('القائم', headerTextColor),
+                          _buildPdfHeaderCell('الصافي', headerTextColor),
+                          _buildPdfHeaderCell('السعر', headerTextColor),
+                          _buildPdfHeaderCell('الإجمالي', headerTextColor),
                         ],
                       ),
-                      // البيانات (معكوسة)
+                      // البيانات
                       ...items.asMap().entries.map((entry) {
                         final index = entry.key;
                         final item = entry.value;
@@ -147,34 +141,32 @@ class _SupplierPurchasesScreenState extends State<SupplierPurchasesScreen> {
                         return pw.TableRow(
                           decoration: pw.BoxDecoration(color: color),
                           children: [
+                            _buildPdfCell(item.material),
+                            _buildPdfCell(item.count),
+                            _buildPdfCell(item.packaging),
+                            _buildPdfCell(item.standing),
+                            _buildPdfCell(item.net),
+                            _buildPdfCell(item.price),
                             _buildPdfCell(item.total,
                                 textColor: grandTotalColor, isBold: true),
-                            _buildPdfCell(item.price),
-                            _buildPdfCell(item.net),
-                            _buildPdfCell(item.standing),
-                            _buildPdfCell(item.packaging),
-                            _buildPdfCell(item.count),
-                            _buildPdfCell(item.material),
                           ],
                         );
                       }).toList(),
-                      // سطر المجموع (معكوس)
+                      // سطر المجموع
                       pw.TableRow(
                         decoration: pw.BoxDecoration(color: totalRowColor),
                         children: [
-                          _buildPdfCell(''),
-                          _buildPdfCell(totalGrand.toStringAsFixed(2),
-                              textColor: grandTotalColor, isBold: true),
-                          _buildPdfCell(''),
-                          _buildPdfCell(totalNet.toStringAsFixed(2),
-                              isBold: true),
-                          _buildPdfCell(totalStanding.toStringAsFixed(2),
-                              isBold: true),
-                          _buildPdfCell(''),
+                          _buildPdfCell('م', isBold: true),
                           _buildPdfCell(totalCount.toStringAsFixed(0),
                               isBold: true),
                           _buildPdfCell(''),
-                          _buildPdfCell('م', isBold: true),
+                          _buildPdfCell(totalStanding.toStringAsFixed(2),
+                              isBold: true),
+                          _buildPdfCell(totalNet.toStringAsFixed(2),
+                              isBold: true),
+                          _buildPdfCell(''),
+                          _buildPdfCell(totalGrand.toStringAsFixed(2),
+                              textColor: grandTotalColor, isBold: true),
                         ],
                       ),
                     ],
@@ -364,7 +356,7 @@ class _SupplierPurchasesScreenState extends State<SupplierPurchasesScreen> {
                 padding: const EdgeInsets.all(8.0),
                 child: Column(
                   children: [
-                    // --- جدول المشتريات UI (يبقى كما هو، التعديل في PDF فقط) ---
+                    // --- جدول المشتريات UI ---
                     Container(
                       decoration: BoxDecoration(
                         border: Border.all(color: Colors.red.shade200),
@@ -377,7 +369,6 @@ class _SupplierPurchasesScreenState extends State<SupplierPurchasesScreen> {
                             padding: const EdgeInsets.symmetric(vertical: 8),
                             child: Row(
                               children: [
-                                _buildHeaderCell('ت', 1),
                                 _buildHeaderCell('المادة', 4),
                                 _buildHeaderCell('العدد', 2),
                                 _buildHeaderCell('العبوة', 3),
@@ -385,7 +376,6 @@ class _SupplierPurchasesScreenState extends State<SupplierPurchasesScreen> {
                                 _buildHeaderCell('الصافي', 2),
                                 _buildHeaderCell('السعر', 2),
                                 _buildHeaderCell('الإجمالي', 3),
-                                _buildHeaderCell('فوارغ', 3),
                               ],
                             ),
                           ),
@@ -421,7 +411,6 @@ class _SupplierPurchasesScreenState extends State<SupplierPurchasesScreen> {
                               children: [
                                 _buildDataCell('المجموع', 1,
                                     fontWeight: FontWeight.bold),
-                                _buildDataCell('', 4),
                                 _buildDataCell(totalCount.toStringAsFixed(0), 2,
                                     fontWeight: FontWeight.bold),
                                 _buildDataCell('', 3),
@@ -435,7 +424,6 @@ class _SupplierPurchasesScreenState extends State<SupplierPurchasesScreen> {
                                 _buildDataCell(totalGrand.toStringAsFixed(2), 3,
                                     fontWeight: FontWeight.bold,
                                     color: Colors.red.shade900),
-                                _buildDataCell('', 3),
                               ],
                             ),
                           ),
