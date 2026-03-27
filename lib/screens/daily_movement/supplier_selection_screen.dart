@@ -140,6 +140,7 @@ class _SupplierSelectionScreenState extends State<SupplierSelectionScreen> {
                               MaterialPageRoute(
                                 builder: (context) => SupplierPurchasesScreen(
                                   selectedDate: widget.selectedDate,
+                                  storeName: widget.storeName,
                                   supplierName: supplierName,
                                 ),
                               ),

@@ -248,6 +248,8 @@ class SalesStorageService {
       'totalBase': totalBase.toStringAsFixed(2),
       'totalNet': totalNet.toStringAsFixed(2),
       'totalGrand': totalGrand.toStringAsFixed(2),
+      'totalPayments':
+          totalGrand.toStringAsFixed(2), // مطلوب لـ account_summary_screen
     };
   }
 
@@ -423,17 +425,21 @@ class SalesStorageService {
     return DateTime.now();
   }
 
-// 2. أضف هذه الدالة الجديدة (للحصول على رقم اليومية لتاريخ معين إذا كانت موجودة)
+// الحصول على رقم اليومية لتاريخ معين
   Future<String> getJournalNumberForDate(String date) async {
     try {
-      final file = await _getSalesFile(date);
+      final basePath = await _getBasePath();
+      final folderPath = '$basePath/SalesJournals';
+      final fileName = _createFileName(date);
+      final filePath = '$folderPath/$fileName';
+
+      final file = File(filePath);
       if (await file.exists()) {
         final jsonString = await file.readAsString();
         final jsonMap = jsonDecode(jsonString) as Map<String, dynamic>;
         return jsonMap['recordNumber'] ?? '1';
       }
-      // إذا كان الملف غير موجود، سيعرض الرقم 1 مؤقتاً في الواجهة
-      return '1';
+      return await getNextJournalNumber();
     } catch (e) {
       if (kDebugMode) {
         debugPrint('❌ خطأ في الحصول على رقم اليومية للتاريخ $date: $e');

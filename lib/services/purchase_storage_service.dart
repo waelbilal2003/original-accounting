@@ -257,6 +257,8 @@ class PurchaseStorageService {
       'totalBase': totalBase.toStringAsFixed(2),
       'totalNet': totalNet.toStringAsFixed(2),
       'totalGrand': totalGrand.toStringAsFixed(2),
+      'totalPayments':
+          totalGrand.toStringAsFixed(2), // مطلوب لـ account_summary_screen
     };
   }
 
@@ -369,7 +371,7 @@ class PurchaseStorageService {
   Future<List<String>> getAllAvailableDates() async {
     try {
       final basePath = await _getBasePath();
-      final folderPath = '$basePath/PurchasesJournals';
+      final folderPath = '$basePath/PurchaseJournals';
       final folder = Directory(folderPath);
       if (!await folder.exists()) return [];
       final files = await folder.list().toList();

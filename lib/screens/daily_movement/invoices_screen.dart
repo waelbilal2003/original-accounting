@@ -84,13 +84,13 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
     }
 
     // تعريف الألوان
-    final PdfColor headerColor = PdfColor.fromInt(0xFF5C6BC0); // Indigo 400
+    final PdfColor headerColor = PdfColor.fromInt(0xFF5C6BC0);
     final PdfColor headerTextColor = PdfColors.white;
     final PdfColor rowEvenColor = PdfColors.white;
-    final PdfColor rowOddColor = PdfColor.fromInt(0xFFE8EAF6); // Indigo 50
-    final PdfColor borderColor = PdfColor.fromInt(0xFFE0E0E0); // Grey 300
-    final PdfColor totalRowColor = PdfColor.fromInt(0xFFC5CAE9); // Indigo 100
-    final PdfColor grandTotalColor = PdfColor.fromInt(0xFF283593); // Indigo 800
+    final PdfColor rowOddColor = PdfColor.fromInt(0xFFE8EAF6);
+    final PdfColor borderColor = PdfColor.fromInt(0xFFE0E0E0);
+    final PdfColor totalRowColor = PdfColor.fromInt(0xFFC5CAE9);
+    final PdfColor grandTotalColor = PdfColor.fromInt(0xFF283593);
 
     final String balanceTextPdf =
         customerBalance != null ? customerBalance.toStringAsFixed(2) : '---';
@@ -131,35 +131,35 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
                   ),
                   pw.SizedBox(height: 15),
 
-                  // --- الجدول ---
+                  // --- الجدول (معكوس) ---
                   pw.Table(
                     border: pw.TableBorder.all(color: borderColor, width: 0.5),
                     columnWidths: {
-                      0: const pw.FlexColumnWidth(1), // ت
-                      1: const pw.FlexColumnWidth(4), // المادة
-                      2: const pw.FlexColumnWidth(2), // العدد
-                      3: const pw.FlexColumnWidth(3), // العبوة
-                      4: const pw.FlexColumnWidth(2), // القائم
-                      5: const pw.FlexColumnWidth(2), // الصافي
-                      6: const pw.FlexColumnWidth(2), // السعر
-                      7: const pw.FlexColumnWidth(3), // الإجمالي
+                      0: const pw.FlexColumnWidth(3), // الإجمالي
+                      1: const pw.FlexColumnWidth(2), // السعر
+                      2: const pw.FlexColumnWidth(2), // الصافي
+                      3: const pw.FlexColumnWidth(2), // القائم
+                      4: const pw.FlexColumnWidth(3), // العبوة
+                      5: const pw.FlexColumnWidth(2), // العدد
+                      6: const pw.FlexColumnWidth(4), // المادة
+                      7: const pw.FlexColumnWidth(1), // ت
                     },
                     children: [
-                      // رأس الجدول
+                      // رأس الجدول (معكوس)
                       pw.TableRow(
                         decoration: pw.BoxDecoration(color: headerColor),
                         children: [
-                          _buildPdfHeaderCell('ت', headerTextColor),
-                          _buildPdfHeaderCell('المادة', headerTextColor),
-                          _buildPdfHeaderCell('العدد', headerTextColor),
-                          _buildPdfHeaderCell('العبوة', headerTextColor),
-                          _buildPdfHeaderCell('القائم', headerTextColor),
-                          _buildPdfHeaderCell('الصافي', headerTextColor),
-                          _buildPdfHeaderCell('السعر', headerTextColor),
                           _buildPdfHeaderCell('الإجمالي', headerTextColor),
+                          _buildPdfHeaderCell('السعر', headerTextColor),
+                          _buildPdfHeaderCell('الصافي', headerTextColor),
+                          _buildPdfHeaderCell('القائم', headerTextColor),
+                          _buildPdfHeaderCell('العبوة', headerTextColor),
+                          _buildPdfHeaderCell('العدد', headerTextColor),
+                          _buildPdfHeaderCell('المادة', headerTextColor),
+                          _buildPdfHeaderCell('ت', headerTextColor),
                         ],
                       ),
-                      // صفوف البيانات
+                      // صفوف البيانات (معكوسة)
                       ...items.asMap().entries.map((entry) {
                         final index = entry.key;
                         final item = entry.value;
@@ -168,36 +168,36 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
                         return pw.TableRow(
                           decoration: pw.BoxDecoration(color: color),
                           children: [
-                            _buildPdfCell(item.serialNumber),
-                            _buildPdfCell(item.material),
-                            _buildPdfCell(item.count),
-                            _buildPdfCell(item.packaging),
-                            _buildPdfCell(item.standing),
-                            _buildPdfCell(item.net),
-                            _buildPdfCell(item.price),
                             _buildPdfCell(item.total,
                                 textColor: PdfColor.fromInt(0xFF1A237E),
                                 isBold: true),
+                            _buildPdfCell(item.price),
+                            _buildPdfCell(item.net),
+                            _buildPdfCell(item.standing),
+                            _buildPdfCell(item.packaging),
+                            _buildPdfCell(item.count),
+                            _buildPdfCell(item.material),
+                            _buildPdfCell(item.serialNumber),
                           ],
                         );
                       }).toList(),
-                      // صف المجموع الفرعي
+                      // صف المجموع الفرعي (معكوس)
                       pw.TableRow(
                         decoration: pw.BoxDecoration(color: totalRowColor),
                         children: [
-                          _buildPdfCell('م', isBold: true),
-                          _buildPdfCell(''),
-                          _buildPdfCell(totalCount.toStringAsFixed(0),
-                              isBold: true),
-                          _buildPdfCell(''),
-                          _buildPdfCell(totalStanding.toStringAsFixed(2),
-                              isBold: true),
-                          _buildPdfCell(totalNet.toStringAsFixed(2),
-                              isBold: true),
-                          _buildPdfCell(''),
                           _buildPdfCell(grandTotal.toStringAsFixed(2),
                               textColor: PdfColor.fromInt(0xFF1A237E),
                               isBold: true),
+                          _buildPdfCell(''),
+                          _buildPdfCell(totalNet.toStringAsFixed(2),
+                              isBold: true),
+                          _buildPdfCell(totalStanding.toStringAsFixed(2),
+                              isBold: true),
+                          _buildPdfCell(''),
+                          _buildPdfCell(totalCount.toStringAsFixed(0),
+                              isBold: true),
+                          _buildPdfCell('المجموع', isBold: true),
+                          _buildPdfCell('', isBold: true),
                         ],
                       ),
                     ],

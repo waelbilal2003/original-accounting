@@ -112,6 +112,8 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
   bool _isCalculating = false;
   bool _isAdmin = false;
 
+  double _grandTotal = 0.0;
+
   @override
   void initState() {
     super.initState();
@@ -204,6 +206,7 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
         _availableDates = dates;
         _isLoadingDates = false;
       });
+      _loadGrandTotal(); // أضف هذا السطر
     } catch (e) {
       setState(() {
         _availableDates = [];
@@ -256,7 +259,7 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
 
       List<FocusNode> newFocusNodes = List.generate(11, (index) => FocusNode());
 
-      newControllers[0].text = newSerialNumber;
+      newControllers[0].text = newSerialNumber; // [0] الرقم المسلسل
 
       // إضافة مستمعات للتغيير باستخدام دالة مساعدة
       _addChangeListenersToControllers(newControllers, rowControllers.length);
@@ -584,13 +587,15 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
         }
       }
 
+      // تحديث قيم المتحكمات
+      totalCountController.text = totalCount.toStringAsFixed(0);
+      totalBaseController.text = totalBase.toStringAsFixed(2);
+      totalNetController.text = totalNet.toStringAsFixed(2);
+      totalGrandController.text = totalGrand.toStringAsFixed(2);
+
+      // إعادة بناء الواجهة لإظهار القيم الجديدة
       if (mounted) {
-        setState(() {
-          totalCountController.text = totalCount.toStringAsFixed(0);
-          totalBaseController.text = totalBase.toStringAsFixed(2);
-          totalNetController.text = totalNet.toStringAsFixed(2);
-          totalGrandController.text = totalGrand.toStringAsFixed(2);
-        });
+        setState(() {});
       }
 
       _isCalculating = false;
@@ -623,16 +628,19 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
         var purchase = document.purchases[i];
 
         List<TextEditingController> newControllers = [
-          TextEditingController(text: purchase.material),
-          TextEditingController(text: purchase.affiliation),
-          TextEditingController(text: purchase.count),
-          TextEditingController(text: purchase.packaging),
-          TextEditingController(text: purchase.standing),
-          TextEditingController(text: purchase.net),
-          TextEditingController(text: purchase.price),
-          TextEditingController(text: purchase.total),
-          TextEditingController(),
-          TextEditingController(),
+          TextEditingController(text: (i + 1).toString()), // [0] الرقم المسلسل
+          TextEditingController(text: purchase.material), // [1] المادة
+          TextEditingController(text: purchase.affiliation), // [2] المورد
+          TextEditingController(text: purchase.count), // [3] العدد
+          TextEditingController(text: purchase.packaging), // [4] العبوة
+          TextEditingController(text: purchase.standing), // [5] القائم
+          TextEditingController(text: purchase.net), // [6] الصافي
+          TextEditingController(text: purchase.price), // [7] السعر
+          TextEditingController(
+              text: purchase
+                  .total), // [8] الإجمالي ← يُحسب في _calculateRowValues
+          TextEditingController(), // [9]
+          TextEditingController(), // [10]
         ];
 
         List<FocusNode> newFocusNodes =
@@ -665,6 +673,9 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
 
       _hasUnsavedChanges = false;
     });
+
+    // إعادة حساب المجاميع من البيانات المحملة لضمان صحة الإجمالي
+    _calculateAllTotals();
   }
 
   void _scrollToField(int rowIndex, int colIndex) {
@@ -818,15 +829,10 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
       constraints: const BoxConstraints(minHeight: 25),
       color: Colors.yellow[50],
       alignment: Alignment.center,
-      child: ValueListenableBuilder<TextEditingValue>(
-        valueListenable: controller,
-        builder: (context, value, _) {
-          return Text(
-            value.text,
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-            textAlign: TextAlign.center,
-          );
-        },
+      child: Text(
+        controller.text,
+        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+        textAlign: TextAlign.center,
       ),
     );
   }
@@ -1070,11 +1076,37 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
                     _toggleFullScreenSuggestions(type: '', show: false),
               ),
             Expanded(
-              child: Text(
-                'يومية مشتريات رقم /$serialNumber/ تاريخ ${widget.selectedDate}',
-                style:
-                    const TextStyle(fontWeight: FontWeight.bold, fontSize: 22),
-                textAlign: TextAlign.center,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Text(
+                    'المشتريات - ${widget.selectedDate}',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 14, height: 1.5),
+                  ),
+                  Directionality(
+                    textDirection: TextDirection.rtl,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Text('الإجمالي الكلي: ',
+                            style:
+                                TextStyle(fontSize: 11, color: Colors.white70)),
+                        Text(
+                          _grandTotal.toStringAsFixed(2),
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.lightBlueAccent,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -1087,50 +1119,6 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
             icon: const Icon(Icons.picture_as_pdf),
             tooltip: 'تصدير PDF',
             onPressed: () => _generateAndSharePdf(),
-          ),
-          IconButton(
-            icon: _isSaving
-                ? SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                    ),
-                  )
-                : Stack(
-                    children: [
-                      const Icon(Icons.save),
-                      if (_hasUnsavedChanges)
-                        Positioned(
-                          right: 0,
-                          top: 0,
-                          child: Container(
-                            padding: const EdgeInsets.all(2),
-                            decoration: BoxDecoration(
-                              color: Colors.red,
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            constraints: const BoxConstraints(
-                              minWidth: 12,
-                              minHeight: 12,
-                            ),
-                            child: const SizedBox(
-                              width: 8,
-                              height: 8,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-            tooltip: _hasUnsavedChanges
-                ? 'هناك تغييرات غير محفوظة - انقر للحفظ'
-                : 'حفظ اليومية',
-            onPressed: _isSaving
-                ? null
-                : () {
-                    _saveCurrentRecord();
-                  },
           ),
           PopupMenuButton<String>(
             icon: const Icon(Icons.calendar_month),
@@ -1314,14 +1302,14 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
           }
 
           final p = Purchase(
-            material: controllers[0].text,
-            affiliation: controllers[1].text.trim(),
-            count: controllers[2].text,
-            packaging: controllers[3].text,
-            standing: controllers[4].text,
-            net: controllers[5].text,
-            price: controllers[6].text,
-            total: controllers[7].text,
+            material: controllers[1].text,
+            affiliation: controllers[2].text.trim(),
+            count: controllers[3].text,
+            packaging: controllers[4].text,
+            standing: controllers[5].text,
+            net: controllers[6].text,
+            price: controllers[7].text,
+            total: controllers[8].text,
             cashOrDebt: cashOrDebtValues[i],
             sellerName: sellerNames[i],
           );
@@ -1584,37 +1572,36 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
                       border:
                           pw.TableBorder.all(color: borderColor, width: 0.5),
                       columnWidths: {
-                        0: const pw.FlexColumnWidth(4), // المادة
-                        1: const pw.FlexColumnWidth(3), // المورد
-                        2: const pw.FlexColumnWidth(2), // العدد
-                        3: const pw.FlexColumnWidth(3), // العبوة
-                        4: const pw.FlexColumnWidth(2), // القائم
-                        5: const pw.FlexColumnWidth(2), // الصافي
-                        6: const pw.FlexColumnWidth(2), // السعر
-                        7: const pw.FlexColumnWidth(3), // الإجمالي
-                        8: const pw.FlexColumnWidth(2), // نقدي/دين
+                        0: const pw.FlexColumnWidth(3), // الإجمالي
+                        1: const pw.FlexColumnWidth(2), // السعر
+                        2: const pw.FlexColumnWidth(2), // الصافي
+                        3: const pw.FlexColumnWidth(2), // القائم
+                        4: const pw.FlexColumnWidth(3), // العبوة
+                        5: const pw.FlexColumnWidth(2), // العدد
+                        6: const pw.FlexColumnWidth(3), // المورد
+                        7: const pw.FlexColumnWidth(4), // المادة
+                        8: const pw.FlexColumnWidth(2), // نوع
                       },
                       children: [
-                        // رأس الجدول
+                        // رأس الجدول (معكوس)
                         pw.TableRow(
                           decoration: pw.BoxDecoration(color: headerColor),
                           children: [
-                            _buildPdfHeaderCell('المادة', headerTextColor),
-                            _buildPdfHeaderCell('المورد', headerTextColor),
-                            _buildPdfHeaderCell('العدد', headerTextColor),
-                            _buildPdfHeaderCell('العبوة', headerTextColor),
-                            _buildPdfHeaderCell('القائم', headerTextColor),
-                            _buildPdfHeaderCell('الصافي', headerTextColor),
-                            _buildPdfHeaderCell('السعر', headerTextColor),
                             _buildPdfHeaderCell('الإجمالي', headerTextColor),
+                            _buildPdfHeaderCell('السعر', headerTextColor),
+                            _buildPdfHeaderCell('الصافي', headerTextColor),
+                            _buildPdfHeaderCell('القائم', headerTextColor),
+                            _buildPdfHeaderCell('العبوة', headerTextColor),
+                            _buildPdfHeaderCell('العدد', headerTextColor),
+                            _buildPdfHeaderCell('المورد', headerTextColor),
+                            _buildPdfHeaderCell('المادة', headerTextColor),
                             _buildPdfHeaderCell('نوع', headerTextColor),
                           ],
                         ),
-                        // صفوف البيانات
+                        // صفوف البيانات (معكوسة)
                         ...rowControllers.asMap().entries.map((entry) {
                           final index = entry.key;
                           final controllers = entry.value;
-                          // تخطي الصفوف الفارغة
                           if (controllers[1].text.isEmpty &&
                               controllers[3].text.isEmpty) {
                             return pw.TableRow(
@@ -1625,36 +1612,36 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
                           return pw.TableRow(
                             decoration: pw.BoxDecoration(color: color),
                             children: [
-                              _buildPdfCell(controllers[1].text), // المادة
-                              _buildPdfCell(controllers[2].text), // المورد
-                              _buildPdfCell(controllers[3].text), // العدد
-                              _buildPdfCell(controllers[4].text), // العبوة
-                              _buildPdfCell(controllers[5].text), // القائم
-                              _buildPdfCell(controllers[6].text), // الصافي
-                              _buildPdfCell(controllers[7].text), // السعر
                               _buildPdfCell(controllers[8].text,
                                   isBold: true), // الإجمالي
+                              _buildPdfCell(controllers[7].text), // السعر
+                              _buildPdfCell(controllers[6].text), // الصافي
+                              _buildPdfCell(controllers[5].text), // القائم
+                              _buildPdfCell(controllers[4].text), // العبوة
+                              _buildPdfCell(controllers[3].text), // العدد
+                              _buildPdfCell(controllers[2].text), // المورد
+                              _buildPdfCell(controllers[1].text), // المادة
                               _buildPdfCell(cashOrDebtValues[index]), // نوع
                             ],
                           );
                         }).toList(),
-                        // سطر المجاميع
+                        // سطر المجاميع (معكوس)
                         pw.TableRow(
                           decoration: pw.BoxDecoration(color: totalRowColor),
                           children: [
-                            _buildPdfCell('المجموع', isBold: true),
-                            _buildPdfCell('', isBold: true),
-                            _buildPdfCell(totalCount.toStringAsFixed(0),
-                                isBold: true),
-                            _buildPdfCell('', isBold: true),
-                            _buildPdfCell(totalBase.toStringAsFixed(2),
-                                isBold: true),
-                            _buildPdfCell(totalNet.toStringAsFixed(2),
-                                isBold: true),
-                            _buildPdfCell('', isBold: true),
                             _buildPdfCell(totalGrand.toStringAsFixed(2),
                                 isBold: true),
-                            _buildPdfCell('', isBold: true),
+                            _buildPdfCell(''),
+                            _buildPdfCell(totalNet.toStringAsFixed(2),
+                                isBold: true),
+                            _buildPdfCell(totalBase.toStringAsFixed(2),
+                                isBold: true),
+                            _buildPdfCell(''),
+                            _buildPdfCell(totalCount.toStringAsFixed(0),
+                                isBold: true),
+                            _buildPdfCell(''),
+                            _buildPdfCell('المجموع', isBold: true),
+                            _buildPdfCell(''),
                           ],
                         ),
                       ],
@@ -1701,6 +1688,17 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
               fontSize: 8,
               fontWeight: isBold ? pw.FontWeight.bold : pw.FontWeight.normal)),
     );
+  }
+
+  Future<void> _loadGrandTotal() async {
+    double total = 0.0;
+    for (var dateInfo in _availableDates) {
+      final doc = await _storageService.loadPurchaseDocument(dateInfo['date']!);
+      if (doc != null) {
+        total += double.tryParse(doc.totals['totalGrand'] ?? '0') ?? 0;
+      }
+    }
+    if (mounted) setState(() => _grandTotal = total);
   }
 }
 

@@ -62,11 +62,14 @@ class _CustomerPreferencesScreenState extends State<CustomerPreferencesScreen> {
       final doc = await _salesService.loadDocumentForDate(dateString);
       if (doc != null) {
         for (var t in doc.sales) {
-          if (t.sellerName == widget.customer.name && t.total.isNotEmpty) {
+          // مبيعات دين مرتبطة بهذا الزبون
+          if (t.cashOrDebt == 'دين' &&
+              t.customerName == widget.customer.name &&
+              t.total.isNotEmpty) {
             transactions.add({
               'date': dateString,
               'value': t.total,
-              'notes': '', // ملاحظات غير متوفرة في Sale
+              'notes': t.material.isNotEmpty ? t.material : '',
               'source': 'sales',
             });
           }

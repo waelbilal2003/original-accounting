@@ -100,6 +100,9 @@ class _SalesScreenState extends State<SalesScreen> {
 
   late ScrollController _horizontalSuggestionsController;
   bool _isAdmin = false;
+
+  // أضف مع المتغيرات الأخرى
+  double _grandTotal = 0.0;
   @override
   void initState() {
     super.initState();
@@ -1013,7 +1016,6 @@ class _SalesScreenState extends State<SalesScreen> {
                     _selectMaterialSuggestion(val, idx);
                   if (_currentSuggestionType == 'packaging')
                     _selectPackagingSuggestion(val, idx);
-
                   if (_currentSuggestionType == 'customer')
                     _selectCustomerSuggestion(val, idx);
                 },
@@ -1021,11 +1023,37 @@ class _SalesScreenState extends State<SalesScreen> {
                     _toggleFullScreenSuggestions(type: '', show: false),
               ),
             Expanded(
-              child: Text(
-                'يومية مبيعات رقم /$serialNumber/ تاريخ ${widget.selectedDate}',
-                style:
-                    const TextStyle(fontWeight: FontWeight.bold, fontSize: 22),
-                textAlign: TextAlign.center,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Text(
+                    'المبيعات - ${widget.selectedDate}',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 14, height: 1.5),
+                  ),
+                  Directionality(
+                    textDirection: TextDirection.rtl,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Text('الإجمالي الكلي: ',
+                            style:
+                                TextStyle(fontSize: 11, color: Colors.white70)),
+                        Text(
+                          _grandTotal.toStringAsFixed(2),
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.lightGreenAccent,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -1038,50 +1066,6 @@ class _SalesScreenState extends State<SalesScreen> {
             icon: const Icon(Icons.picture_as_pdf),
             tooltip: 'تصدير PDF',
             onPressed: () => _generateAndSharePdf(),
-          ),
-          IconButton(
-            icon: _isSaving
-                ? SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                    ),
-                  )
-                : Stack(
-                    children: [
-                      const Icon(Icons.save),
-                      if (_hasUnsavedChanges)
-                        Positioned(
-                          right: 0,
-                          top: 0,
-                          child: Container(
-                            padding: const EdgeInsets.all(2),
-                            decoration: BoxDecoration(
-                              color: Colors.red,
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            constraints: const BoxConstraints(
-                              minWidth: 12,
-                              minHeight: 12,
-                            ),
-                            child: const SizedBox(
-                              width: 8,
-                              height: 8,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-            tooltip: _hasUnsavedChanges
-                ? 'هناك تغييرات غير محفوظة - انقر للحفظ'
-                : 'حفظ يومية المبيعات',
-            onPressed: _isSaving
-                ? null
-                : () {
-                    _saveCurrentRecord();
-                  },
           ),
           PopupMenuButton<String>(
             icon: const Icon(Icons.calendar_month),
@@ -1449,7 +1433,6 @@ class _SalesScreenState extends State<SalesScreen> {
     });
 
     try {
-      // جلب التواريخ مع أرقام اليوميات
       final dates = await _storageService.getAvailableDatesWithNumbers();
 
       if (kDebugMode) {
@@ -1464,6 +1447,7 @@ class _SalesScreenState extends State<SalesScreen> {
         _availableRecords = dates;
         _isLoadingRecords = false;
       });
+      _loadGrandTotal(); // أضف هذا السطر
     } catch (e) {
       setState(() {
         _availableRecords = [];
@@ -1611,11 +1595,25 @@ class _SalesScreenState extends State<SalesScreen> {
         arabicFont = pw.Font.courier();
       }
 
+      // حساب المجاميع
+      double totalCount = 0;
+      double totalBase = 0;
+      double totalNet = 0;
+      double totalGrand = 0;
+
+      for (var controllers in rowControllers) {
+        totalCount += double.tryParse(controllers[1].text) ?? 0;
+        totalBase += double.tryParse(controllers[3].text) ?? 0;
+        totalNet += double.tryParse(controllers[4].text) ?? 0;
+        totalGrand += double.tryParse(controllers[6].text) ?? 0;
+      }
+
       final PdfColor headerColor = PdfColor.fromInt(0xFFF57C00);
       final PdfColor headerTextColor = PdfColors.white;
       final PdfColor rowEvenColor = PdfColors.white;
       final PdfColor rowOddColor = PdfColor.fromInt(0xFFFFE0B2);
       final PdfColor borderColor = PdfColor.fromInt(0xFFE0E0E0);
+      final PdfColor totalRowColor = PdfColor.fromInt(0xFFFFCC80);
 
       pdf.addPage(
         pw.MultiPage(
@@ -1642,26 +1640,26 @@ class _SalesScreenState extends State<SalesScreen> {
                       border:
                           pw.TableBorder.all(color: borderColor, width: 0.5),
                       columnWidths: {
-                        0: const pw.FlexColumnWidth(4), // المادة
-                        1: const pw.FlexColumnWidth(2), // العدد
-                        2: const pw.FlexColumnWidth(3), // العبوة
+                        0: const pw.FlexColumnWidth(3), // الإجمالي
+                        1: const pw.FlexColumnWidth(2), // السعر
+                        2: const pw.FlexColumnWidth(2), // الصافي
                         3: const pw.FlexColumnWidth(2), // القائم
-                        4: const pw.FlexColumnWidth(2), // الصافي
-                        5: const pw.FlexColumnWidth(2), // السعر
-                        6: const pw.FlexColumnWidth(3), // الإجمالي
+                        4: const pw.FlexColumnWidth(3), // العبوة
+                        5: const pw.FlexColumnWidth(2), // العدد
+                        6: const pw.FlexColumnWidth(4), // المادة
                         7: const pw.FlexColumnWidth(2), // نقدي/دين
                       },
                       children: [
                         pw.TableRow(
                           decoration: pw.BoxDecoration(color: headerColor),
                           children: [
-                            _buildPdfHeaderCell('المادة', headerTextColor),
-                            _buildPdfHeaderCell('العدد', headerTextColor),
-                            _buildPdfHeaderCell('العبوة', headerTextColor),
-                            _buildPdfHeaderCell('القائم', headerTextColor),
-                            _buildPdfHeaderCell('الصافي', headerTextColor),
-                            _buildPdfHeaderCell('السعر', headerTextColor),
                             _buildPdfHeaderCell('الإجمالي', headerTextColor),
+                            _buildPdfHeaderCell('السعر', headerTextColor),
+                            _buildPdfHeaderCell('الصافي', headerTextColor),
+                            _buildPdfHeaderCell('القائم', headerTextColor),
+                            _buildPdfHeaderCell('العبوة', headerTextColor),
+                            _buildPdfHeaderCell('العدد', headerTextColor),
+                            _buildPdfHeaderCell('المادة', headerTextColor),
                             _buildPdfHeaderCell('نوع', headerTextColor),
                           ],
                         ),
@@ -1678,34 +1676,32 @@ class _SalesScreenState extends State<SalesScreen> {
                           return pw.TableRow(
                             decoration: pw.BoxDecoration(color: color),
                             children: [
-                              _buildPdfCell(controllers[6].text), // المادة
-                              _buildPdfCell(controllers[5].text), // العدد
-                              _buildPdfCell(controllers[4].text), // العبوة
-                              _buildPdfCell(controllers[3].text), // القائم
-                              _buildPdfCell(controllers[2].text), // الصافي
-                              _buildPdfCell(controllers[1].text), // السعر
-                              _buildPdfCell(controllers[0].text,
+                              _buildPdfCell(controllers[6].text,
                                   isBold: true), // الإجمالي
-                              _buildPdfCell(
-                                  cashOrDebtValues[index]), // نقدي/دين
+                              _buildPdfCell(controllers[5].text), // السعر
+                              _buildPdfCell(controllers[4].text), // الصافي
+                              _buildPdfCell(controllers[3].text), // القائم
+                              _buildPdfCell(controllers[2].text), // العبوة
+                              _buildPdfCell(controllers[1].text), // العدد
+                              _buildPdfCell(controllers[0].text), // المادة
+                              _buildPdfCell(cashOrDebtValues[index]), // نوع
                             ],
                           );
                         }).toList(),
                         pw.TableRow(
-                          decoration: pw.BoxDecoration(
-                              color: PdfColor.fromInt(0xFFFFCC80)),
+                          decoration: pw.BoxDecoration(color: totalRowColor),
                           children: [
+                            _buildPdfCell(totalGrand.toStringAsFixed(2),
+                                isBold: true),
+                            _buildPdfCell(''),
+                            _buildPdfCell(totalNet.toStringAsFixed(2),
+                                isBold: true),
+                            _buildPdfCell(totalBase.toStringAsFixed(2),
+                                isBold: true),
+                            _buildPdfCell(''),
+                            _buildPdfCell(totalCount.toStringAsFixed(0),
+                                isBold: true),
                             _buildPdfCell('المجموع', isBold: true),
-                            _buildPdfCell(totalCountController.text,
-                                isBold: true),
-                            _buildPdfCell(''),
-                            _buildPdfCell(totalBaseController.text,
-                                isBold: true),
-                            _buildPdfCell(totalNetController.text,
-                                isBold: true),
-                            _buildPdfCell(''),
-                            _buildPdfCell(totalGrandController.text,
-                                isBold: true),
                             _buildPdfCell(''),
                           ],
                         ),
@@ -1753,6 +1749,17 @@ class _SalesScreenState extends State<SalesScreen> {
               fontSize: 8,
               fontWeight: isBold ? pw.FontWeight.bold : pw.FontWeight.normal)),
     );
+  }
+
+  Future<void> _loadGrandTotal() async {
+    double total = 0.0;
+    for (var dateInfo in _availableRecords) {
+      final doc = await _storageService.loadSalesDocument(dateInfo['date']!);
+      if (doc != null) {
+        total += double.tryParse(doc.totals['totalGrand'] ?? '0') ?? 0;
+      }
+    }
+    if (mounted) setState(() => _grandTotal = total);
   }
 }
 

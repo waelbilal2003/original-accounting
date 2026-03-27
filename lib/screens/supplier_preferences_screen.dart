@@ -62,11 +62,14 @@ class _SupplierPreferencesScreenState extends State<SupplierPreferencesScreen> {
       final doc = await _purchasesService.loadDocumentForDate(dateString);
       if (doc != null) {
         for (var t in doc.purchases) {
-          if (t.sellerName == widget.supplier.name && t.total.isNotEmpty) {
+          // مشتريات دين مرتبطة بهذا المورد
+          if (t.cashOrDebt == 'دين' &&
+              t.affiliation == widget.supplier.name &&
+              t.total.isNotEmpty) {
             transactions.add({
               'date': dateString,
               'value': t.total,
-              'notes': '', // ملاحظات غير متوفرة في Purchase
+              'notes': t.material.isNotEmpty ? t.material : '',
               'source': 'purchases',
             });
           }

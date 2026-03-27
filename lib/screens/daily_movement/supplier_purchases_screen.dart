@@ -8,15 +8,18 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../models/purchase_model.dart';
 import '../../services/invoices_service.dart';
+import '../../services/supplier_index_service.dart';
 
 class SupplierPurchasesScreen extends StatefulWidget {
   final String selectedDate;
   final String supplierName;
+  final String storeName;
 
   const SupplierPurchasesScreen({
     Key? key,
     required this.selectedDate,
     required this.supplierName,
+    required this.storeName,
   }) : super(key: key);
 
   @override
@@ -26,13 +29,31 @@ class SupplierPurchasesScreen extends StatefulWidget {
 
 class _SupplierPurchasesScreenState extends State<SupplierPurchasesScreen> {
   final InvoicesService _invoicesService = InvoicesService();
+  final SupplierIndexService _supplierIndexService = SupplierIndexService();
   late Future<List<Purchase>> _purchasesDataFuture;
+  double? _supplierBalance;
 
   @override
   void initState() {
     super.initState();
     _purchasesDataFuture = _invoicesService.getPurchasesForSupplier(
         widget.selectedDate, widget.supplierName);
+    _loadSupplierBalance();
+  }
+
+  Future<void> _loadSupplierBalance() async {
+    final allSuppliers = await _supplierIndexService.getAllSuppliersWithData();
+    for (var entry in allSuppliers.entries) {
+      if (entry.value.name.toLowerCase() ==
+          widget.supplierName.trim().toLowerCase()) {
+        if (mounted) {
+          setState(() {
+            _supplierBalance = entry.value.balance;
+          });
+        }
+        return;
+      }
+    }
   }
 
   // --- دالة توليد الـ PDF والمشاركة ---
@@ -61,14 +82,17 @@ class _SupplierPurchasesScreenState extends State<SupplierPurchasesScreen> {
       totalGrand += double.tryParse(item.total) ?? 0;
     }
 
+    final String balanceTextPdf =
+        _supplierBalance != null ? _supplierBalance!.toStringAsFixed(2) : '---';
+
     // تعريف الألوان (Theme: Red)
-    final PdfColor headerColor = PdfColor.fromInt(0xFFEF5350); // Red 400
+    final PdfColor headerColor = PdfColor.fromInt(0xFFEF5350);
     final PdfColor headerTextColor = PdfColors.white;
     final PdfColor rowEvenColor = PdfColors.white;
-    final PdfColor rowOddColor = PdfColor.fromInt(0xFFFFEBEE); // Red 50
-    final PdfColor borderColor = PdfColor.fromInt(0xFFE0E0E0); // Grey 300
-    final PdfColor totalRowColor = PdfColor.fromInt(0xFFFFCDD2); // Red 100
-    final PdfColor grandTotalColor = PdfColor.fromInt(0xFFC62828); // Red 800
+    final PdfColor rowOddColor = PdfColor.fromInt(0xFFFFEBEE);
+    final PdfColor borderColor = PdfColor.fromInt(0xFFE0E0E0);
+    final PdfColor totalRowColor = PdfColor.fromInt(0xFFFFCDD2);
+    final PdfColor grandTotalColor = PdfColor.fromInt(0xFFC62828);
 
     pdf.addPage(
       pw.MultiPage(
@@ -87,7 +111,7 @@ class _SupplierPurchasesScreenState extends State<SupplierPurchasesScreen> {
                   // --- العناوين ---
                   pw.Center(
                     child: pw.Text(
-                      'مشتريات من المورد',
+                      'مشتريات من المورد ${widget.supplierName}',
                       style: pw.TextStyle(
                         fontSize: 18,
                         fontWeight: pw.FontWeight.bold,
@@ -98,7 +122,7 @@ class _SupplierPurchasesScreenState extends State<SupplierPurchasesScreen> {
                   pw.SizedBox(height: 5),
                   pw.Center(
                     child: pw.Text(
-                      'بتاريخ ${widget.selectedDate}',
+                      'بتاريخ ${widget.selectedDate} لمحل ${widget.storeName}',
                       style: const pw.TextStyle(
                           fontSize: 14, color: PdfColors.grey700),
                       textDirection: pw.TextDirection.rtl,
@@ -106,33 +130,33 @@ class _SupplierPurchasesScreenState extends State<SupplierPurchasesScreen> {
                   ),
                   pw.SizedBox(height: 15),
 
-                  // --- الجدول ---
+                  // --- الجدول (معكوس) ---
                   pw.Table(
                     border: pw.TableBorder.all(color: borderColor, width: 0.5),
                     columnWidths: {
-                      0: const pw.FlexColumnWidth(4), // المادة
-                      1: const pw.FlexColumnWidth(2), // العدد
-                      2: const pw.FlexColumnWidth(3), // العبوة
+                      0: const pw.FlexColumnWidth(3), // الإجمالي
+                      1: const pw.FlexColumnWidth(2), // السعر
+                      2: const pw.FlexColumnWidth(2), // الصافي
                       3: const pw.FlexColumnWidth(2), // القائم
-                      4: const pw.FlexColumnWidth(2), // الصافي
-                      5: const pw.FlexColumnWidth(2), // السعر
-                      6: const pw.FlexColumnWidth(3), // الإجمالي
+                      4: const pw.FlexColumnWidth(3), // العبوة
+                      5: const pw.FlexColumnWidth(2), // العدد
+                      6: const pw.FlexColumnWidth(4), // المادة
                     },
                     children: [
-                      // رأس الجدول
+                      // رأس الجدول (معكوس)
                       pw.TableRow(
                         decoration: pw.BoxDecoration(color: headerColor),
                         children: [
-                          _buildPdfHeaderCell('المادة', headerTextColor),
-                          _buildPdfHeaderCell('العدد', headerTextColor),
-                          _buildPdfHeaderCell('العبوة', headerTextColor),
-                          _buildPdfHeaderCell('القائم', headerTextColor),
-                          _buildPdfHeaderCell('الصافي', headerTextColor),
-                          _buildPdfHeaderCell('السعر', headerTextColor),
                           _buildPdfHeaderCell('الإجمالي', headerTextColor),
+                          _buildPdfHeaderCell('السعر', headerTextColor),
+                          _buildPdfHeaderCell('الصافي', headerTextColor),
+                          _buildPdfHeaderCell('القائم', headerTextColor),
+                          _buildPdfHeaderCell('العبوة', headerTextColor),
+                          _buildPdfHeaderCell('العدد', headerTextColor),
+                          _buildPdfHeaderCell('المادة', headerTextColor),
                         ],
                       ),
-                      // البيانات
+                      // البيانات (معكوسة)
                       ...items.asMap().entries.map((entry) {
                         final index = entry.key;
                         final item = entry.value;
@@ -141,32 +165,32 @@ class _SupplierPurchasesScreenState extends State<SupplierPurchasesScreen> {
                         return pw.TableRow(
                           decoration: pw.BoxDecoration(color: color),
                           children: [
-                            _buildPdfCell(item.material),
-                            _buildPdfCell(item.count),
-                            _buildPdfCell(item.packaging),
-                            _buildPdfCell(item.standing),
-                            _buildPdfCell(item.net),
-                            _buildPdfCell(item.price),
                             _buildPdfCell(item.total,
                                 textColor: grandTotalColor, isBold: true),
+                            _buildPdfCell(item.price),
+                            _buildPdfCell(item.net),
+                            _buildPdfCell(item.standing),
+                            _buildPdfCell(item.packaging),
+                            _buildPdfCell(item.count),
+                            _buildPdfCell(item.material),
                           ],
                         );
                       }).toList(),
-                      // سطر المجموع
+                      // سطر المجموع (معكوس)
                       pw.TableRow(
                         decoration: pw.BoxDecoration(color: totalRowColor),
                         children: [
-                          _buildPdfCell('م', isBold: true),
-                          _buildPdfCell(totalCount.toStringAsFixed(0),
-                              isBold: true),
-                          _buildPdfCell(''),
-                          _buildPdfCell(totalStanding.toStringAsFixed(2),
-                              isBold: true),
-                          _buildPdfCell(totalNet.toStringAsFixed(2),
-                              isBold: true),
-                          _buildPdfCell(''),
                           _buildPdfCell(totalGrand.toStringAsFixed(2),
                               textColor: grandTotalColor, isBold: true),
+                          _buildPdfCell(''),
+                          _buildPdfCell(totalNet.toStringAsFixed(2),
+                              isBold: true),
+                          _buildPdfCell(totalStanding.toStringAsFixed(2),
+                              isBold: true),
+                          _buildPdfCell(''),
+                          _buildPdfCell(totalCount.toStringAsFixed(0),
+                              isBold: true),
+                          _buildPdfCell('المجموع', isBold: true),
                         ],
                       ),
                     ],
@@ -183,7 +207,7 @@ class _SupplierPurchasesScreenState extends State<SupplierPurchasesScreen> {
                     ),
                     child: pw.Center(
                       child: pw.Text(
-                        'المجموع ${totalGrand.toStringAsFixed(2)} ليرة سورية فقط لا غير .',
+                        'المجموع ${totalGrand.toStringAsFixed(2)} ليرة سورية فقط لا غير  الرصيد : $balanceTextPdf.',
                         textAlign: pw.TextAlign.center,
                         style: pw.TextStyle(
                           color: PdfColors.white,
@@ -306,7 +330,7 @@ class _SupplierPurchasesScreenState extends State<SupplierPurchasesScreen> {
           child: Padding(
             padding: const EdgeInsets.only(bottom: 8.0),
             child: Text(
-              'بتاريخ ${widget.selectedDate}',
+              'بتاريخ ${widget.selectedDate} لمحل ${widget.storeName}',
               style: const TextStyle(color: Colors.white70, fontSize: 14),
             ),
           ),
@@ -428,6 +452,25 @@ class _SupplierPurchasesScreenState extends State<SupplierPurchasesScreen> {
                             ),
                           ),
                         ],
+                      ),
+                    ),
+                    // --- شريط الرصيد ---
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16.0),
+                      margin: const EdgeInsets.only(top: 8.0),
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade800,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        'المجموع ${totalGrand.toStringAsFixed(2)} ليرة سورية فقط لا غير  الرصيد : ${_supplierBalance != null ? _supplierBalance!.toStringAsFixed(2) : '---'}.',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ],
