@@ -6,8 +6,10 @@ import '../services/packaging_index_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   final String selectedDate;
+  final String storeName; // إضافة متغير storeName
 
-  const SettingsScreen({super.key, required this.selectedDate});
+  const SettingsScreen(
+      {super.key, required this.selectedDate, required this.storeName});
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -419,6 +421,131 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  // دالة عرض نافذة تغيير اسم المتجر
+  void _showChangeStoreNameDialog() {
+    final storeNameCtrl = TextEditingController(text: widget.storeName);
+    final storeNameFocus = FocusNode();
+    String? dialogError;
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            Future<void> doChange() async {
+              final newStoreName = storeNameCtrl.text.trim();
+              if (newStoreName.isEmpty) {
+                setDialogState(() => dialogError = 'يرجى إدخال اسم المتجر');
+                return;
+              }
+
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.setString('store_name', newStoreName);
+              Navigator.pop(ctx);
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('✅ تم تغيير اسم المتجر بنجاح'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+                // تحديث اسم المتجر في الواجهة
+                setState(() {});
+              }
+            }
+
+            return Directionality(
+              textDirection: TextDirection.rtl,
+              child: AlertDialog(
+                titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+                contentPadding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
+                title: Row(
+                  children: [
+                    Icon(Icons.store, color: Colors.orange[700], size: 28),
+                    const SizedBox(width: 12),
+                    const Text(
+                      'تغيير اسم المتجر',
+                      style:
+                          TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+                content: SizedBox(
+                  width: MediaQuery.of(context).size.width * 0.8,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: storeNameCtrl,
+                        focusNode: storeNameFocus,
+                        textDirection: TextDirection.rtl,
+                        textInputAction: TextInputAction.done,
+                        onSubmitted: (_) => doChange(),
+                        decoration: InputDecoration(
+                          labelText: 'اسم المتجر الجديد',
+                          prefixIcon: const Icon(Icons.store),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          filled: true,
+                          fillColor: Colors.grey[50],
+                        ),
+                      ),
+                      if (dialogError != null) ...[
+                        const SizedBox(height: 12),
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.red[50],
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.red[200]!),
+                          ),
+                          child: Text(
+                            dialogError!,
+                            style: const TextStyle(
+                                color: Colors.red, fontSize: 13),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                actionsPadding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 20, vertical: 10),
+                    ),
+                    child: const Text('إلغاء', style: TextStyle(fontSize: 16)),
+                  ),
+                  ElevatedButton(
+                    onPressed: doChange,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.orange[700],
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 24, vertical: 10),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    child: const Text('تغيير',
+                        style: TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.bold)),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   Widget _buildMainButtons() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -442,6 +569,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         }),
         _buildIndexButton(
             'تغيير كلمة المرور', Icons.lock_reset, _showChangePasswordDialog),
+        _buildIndexButton('تغيير اسم المتجر', Icons.store,
+            _showChangeStoreNameDialog), // الزر الرابع
       ],
     );
   }

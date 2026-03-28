@@ -572,7 +572,8 @@ class _SalesScreenState extends State<SalesScreen> {
           TextEditingController(text: sale.net), // [4]
           TextEditingController(text: sale.price), // [5]
           TextEditingController(text: sale.total), // [6]
-          TextEditingController(), // [7] placeholder نقدي/دين
+          TextEditingController(
+              text: sale.customerName ?? ''), // [7] placeholder نقدي/دين
           TextEditingController(), // [8] placeholder الفوارغ
           TextEditingController(), // [9] placeholder اسم الزبون
         ];

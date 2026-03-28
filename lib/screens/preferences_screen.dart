@@ -19,7 +19,7 @@ class PreferencesScreen extends StatefulWidget {
 class _PreferencesScreenState extends State<PreferencesScreen> {
   final CustomerIndexService _customerIndexService = CustomerIndexService();
   final SupplierIndexService _supplierIndexService = SupplierIndexService();
-
+  String _storeName = 'اسم المتجر';
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -154,14 +154,14 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
                         icon: Icons.settings,
                         label: 'إعدادات\nأخرى',
                         color: Colors.grey[700]!,
-                        // في preferences_screen.dart، استبدل onTap لـ 'إعدادات أخرى' بـ:
-
                         onTap: () {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
                               builder: (_) => SettingsScreen(
-                                  selectedDate: widget.selectedDate),
+                                selectedDate: widget.selectedDate,
+                                storeName: _storeName, // تمرير اسم المتجر
+                              ),
                             ),
                           );
                         },
