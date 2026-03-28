@@ -875,7 +875,7 @@ class _SupplierPurchasesScreenState extends State<SupplierPurchasesScreen> {
 
     final List<Purchase> items = [];
 
-    for (int i = 0; i <= selectedDate.difference(firstDayOfYear).inDays; i++) {
+    for (int i = 0; i <= effectiveEnd.difference(rangeStart).inDays; i++) {
       final currentDate = rangeStart.add(Duration(days: i));
       final dateString =
           '${currentDate.year}/${currentDate.month}/${currentDate.day}';
