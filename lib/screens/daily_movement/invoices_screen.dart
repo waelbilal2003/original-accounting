@@ -45,8 +45,7 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
   @override
   void initState() {
     super.initState();
-    _invoiceDataFuture = _invoicesService.getInvoicesForCustomer(
-        widget.selectedDate, widget.customerName);
+    _loadItems();
     _loadCustomerBalance();
   }
 
@@ -65,43 +64,18 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
     }
   }
 
-  // دالة تطبيق الفلترة - ملاحظة: بما أننا لا نملك تاريخ حقيقي لكل عنصر،
   // الفلترة هنا ستكون على أساس تاريخ الشاشة فقط
   void _applyFilter() {
-    if (!mounted) return;
-
-    // تحويل تاريخ الشاشة إلى DateTime للمقارنة
-    final screenDate = _parseDateFromString(widget.selectedDate);
-
-    setState(() {
-      if (_filterFrom == null && _filterTo == null) {
-        _filteredItems = List<InvoiceItem>.from(_allItems);
-        _isFiltered = false;
-      } else {
-        // بما أن جميع العناصر لها نفس تاريخ الشاشة، نتحقق إذا كان تاريخ الشاشة ضمن النطاق
-        if (screenDate != null) {
-          final day =
-              DateTime(screenDate.year, screenDate.month, screenDate.day);
-          bool isInRange = true;
-          if (_filterFrom != null && day.isBefore(_filterFrom!))
-            isInRange = false;
-          if (_filterTo != null && day.isAfter(_filterTo!)) isInRange = false;
-
-          _filteredItems = isInRange ? List<InvoiceItem>.from(_allItems) : [];
-        } else {
-          _filteredItems = [];
-        }
-        _isFiltered = true;
-      }
-    });
+    _loadItems();
   }
 
   void _clearFilter() {
     setState(() {
       _filterFrom = null;
       _filterTo = null;
+      _isFiltered = false;
     });
-    _applyFilter();
+    _loadItems();
   }
 
   DateTime? _parseDateFromString(String dateStr) {
@@ -894,5 +868,43 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _loadItems() async {
+    if (!mounted) return;
+    setState(() {
+      _isFiltered = _filterFrom != null || _filterTo != null;
+    });
+
+    final selectedDate = _parseDateFromString(widget.selectedDate);
+    if (selectedDate == null) return;
+
+    // تحديد نطاق التحميل
+    final DateTime rangeEnd = selectedDate;
+    final DateTime rangeStart = _filterFrom != null
+        ? (_filterFrom!.isAfter(rangeEnd) ? rangeEnd : _filterFrom!)
+        : DateTime(selectedDate.year, 1, 1);
+    final DateTime effectiveEnd =
+        _filterTo != null && !_filterTo!.isAfter(rangeEnd)
+            ? _filterTo!
+            : rangeEnd;
+
+    final List<InvoiceItem> items = [];
+
+    for (int i = 0; i <= effectiveEnd.difference(rangeStart).inDays; i++) {
+      final currentDate = rangeStart.add(Duration(days: i));
+      final dateString =
+          '${currentDate.year}/${currentDate.month}/${currentDate.day}';
+      final dayItems = await _invoicesService.getInvoicesForCustomer(
+          dateString, widget.customerName);
+      items.addAll(dayItems);
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _allItems = items;
+      _filteredItems = items;
+      _invoiceDataFuture = Future.value(items);
+    });
   }
 }

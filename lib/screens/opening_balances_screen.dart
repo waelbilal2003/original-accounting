@@ -193,10 +193,12 @@ class _OpeningBalancesScreenState extends State<OpeningBalancesScreen> {
   Future<void> _addNewCustomer() async {
     final name = _addCustomerController.text.trim();
     if (name.isNotEmpty) {
-      await _customerService.forceAddCustomer(
-        name,
-        startDate: widget.selectedDate,
-      );
+      await _customerService.saveCustomer(name);
+// ثم قم بتحديث تاريخ البدء بشكل منفصل إذا لزم الأمر
+      if (widget.selectedDate.isNotEmpty) {
+        await _customerService.updateCustomerStartDate(
+            name, widget.selectedDate);
+      }
       _addCustomerController.clear();
       _addCustomerFocusNode.unfocus();
       final customers = await _customerService.getAllCustomersWithData();
@@ -257,10 +259,12 @@ class _OpeningBalancesScreenState extends State<OpeningBalancesScreen> {
   Future<void> _addNewSupplier() async {
     final name = _addSupplierController.text.trim();
     if (name.isNotEmpty) {
-      await _supplierService.forceAddSupplier(
-        name,
-        startDate: widget.selectedDate,
-      );
+      await _supplierService.saveSupplier(name);
+// ثم قم بتحديث تاريخ البدء بشكل منفصل إذا لزم الأمر
+      if (widget.selectedDate.isNotEmpty) {
+        await _supplierService.updateSupplierStartDate(
+            name, widget.selectedDate);
+      }
       _addSupplierController.clear();
       _addSupplierFocusNode.unfocus();
       final suppliers = await _supplierService.getAllSuppliersWithData();

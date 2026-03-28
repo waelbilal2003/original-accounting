@@ -158,37 +158,31 @@ class SupplierIndexService implements EnhancedIndexService {
     }
   }
 
-  Future<bool> saveSupplier(String supplier, {String startDate = ''}) async {
+  Future<void> saveSupplier(String supplier, {String startDate = ''}) async {
     await _ensureInitialized();
-    if (supplier.trim().isEmpty) return false;
+    if (supplier.trim().isEmpty) return;
     final normalizedSupplier = _normalizeSupplier(supplier);
-
-    // البحث عن المورد إذا كان موجوداً
-    for (var entry in _supplierMap.entries) {
-      if (entry.value.name.toLowerCase() == normalizedSupplier.toLowerCase()) {
-        // موجود مسبقاً — تحديث تاريخ البدء إن كان فارغاً فقط
-        if (startDate.isNotEmpty && entry.value.startDate.isEmpty) {
-          entry.value.startDate = startDate;
-          await _saveToFile();
+    if (!_supplierMap.values
+        .any((s) => s.name.toLowerCase() == normalizedSupplier.toLowerCase())) {
+      _supplierMap[_nextId] = SupplierData(
+        name: normalizedSupplier,
+        startDate: startDate,
+      );
+      _nextId++;
+      await _saveToFile();
+    } else if (startDate.isNotEmpty) {
+      // إذا كان المورد موجوداً لكن بدون تاريخ بدء، نحدثه
+      for (var entry in _supplierMap.entries) {
+        if (entry.value.name.toLowerCase() ==
+            normalizedSupplier.toLowerCase()) {
+          if (entry.value.startDate.isEmpty) {
+            entry.value.startDate = startDate;
+            await _saveToFile();
+          }
+          break;
         }
-        // إذا رصيده مقفل (غير صفر) نرفض
-        if (entry.value.isBalanceLocked) return false;
-        return true;
       }
     }
-
-    // غير موجود — نتحقق من رصيد البداية الإجمالي
-    final hasLockedBalance = _supplierMap.values.any((s) => s.isBalanceLocked);
-    if (hasLockedBalance) return false;
-
-    // رصيد البداية صفر — يُسمح بالإضافة
-    _supplierMap[_nextId] = SupplierData(
-      name: normalizedSupplier,
-      startDate: startDate,
-    );
-    _nextId++;
-    await _saveToFile();
-    return true;
   }
 
   String _normalizeSupplier(String supplier) {
@@ -478,28 +472,6 @@ class SupplierIndexService implements EnhancedIndexService {
         await _saveToFile();
         return;
       }
-    }
-  }
-
-  /// تُستخدم فقط من opening_balances_screen — تتجاوز قيد رصيد البداية
-  Future<void> forceAddSupplier(String supplier,
-      {String startDate = ''}) async {
-    await _ensureInitialized();
-    if (supplier.trim().isEmpty) return;
-    final normalizedSupplier = _normalizeSupplier(supplier);
-
-    final exists = _supplierMap.values
-        .any((s) => s.name.toLowerCase() == normalizedSupplier.toLowerCase());
-    if (!exists) {
-      _supplierMap[_nextId] = SupplierData(
-        name: normalizedSupplier,
-        startDate: startDate,
-      );
-      _nextId++;
-      await _saveToFile();
-    }
-    if (startDate.isNotEmpty) {
-      await updateSupplierStartDate(normalizedSupplier, startDate);
     }
   }
 }

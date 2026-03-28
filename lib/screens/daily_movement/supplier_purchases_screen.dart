@@ -39,11 +39,11 @@ class _SupplierPurchasesScreenState extends State<SupplierPurchasesScreen> {
   List<Purchase> _allItems = [];
   List<Purchase> _filteredItems = [];
   bool _isFiltered = false;
+
   @override
   void initState() {
     super.initState();
-    _purchasesDataFuture = _invoicesService.getPurchasesForSupplier(
-        widget.selectedDate, widget.supplierName);
+    _loadItems();
     _loadSupplierBalance();
   }
 
@@ -64,38 +64,16 @@ class _SupplierPurchasesScreenState extends State<SupplierPurchasesScreen> {
 
   // دالة تطبيق الفلترة
   void _applyFilter() {
-    if (!mounted) return;
-
-    final screenDate = _parseDateFromString(widget.selectedDate);
-
-    setState(() {
-      if (_filterFrom == null && _filterTo == null) {
-        _filteredItems = List<Purchase>.from(_allItems);
-        _isFiltered = false;
-      } else {
-        if (screenDate != null) {
-          final day =
-              DateTime(screenDate.year, screenDate.month, screenDate.day);
-          bool isInRange = true;
-          if (_filterFrom != null && day.isBefore(_filterFrom!))
-            isInRange = false;
-          if (_filterTo != null && day.isAfter(_filterTo!)) isInRange = false;
-
-          _filteredItems = isInRange ? List<Purchase>.from(_allItems) : [];
-        } else {
-          _filteredItems = [];
-        }
-        _isFiltered = true;
-      }
-    });
+    _loadItems();
   }
 
   void _clearFilter() {
     setState(() {
       _filterFrom = null;
       _filterTo = null;
+      _isFiltered = false;
     });
-    _applyFilter();
+    _loadItems();
   }
 
   // 4. دالة تحويل التاريخ
@@ -875,5 +853,42 @@ class _SupplierPurchasesScreenState extends State<SupplierPurchasesScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _loadItems() async {
+    if (!mounted) return;
+    setState(() {
+      _isFiltered = _filterFrom != null || _filterTo != null;
+    });
+
+    final selectedDate = _parseDateFromString(widget.selectedDate);
+    if (selectedDate == null) return;
+
+    final DateTime rangeEnd = selectedDate;
+    final DateTime rangeStart = _filterFrom != null
+        ? (_filterFrom!.isAfter(rangeEnd) ? rangeEnd : _filterFrom!)
+        : DateTime(selectedDate.year, 1, 1);
+    final DateTime effectiveEnd =
+        _filterTo != null && !_filterTo!.isAfter(rangeEnd)
+            ? _filterTo!
+            : rangeEnd;
+
+    final List<Purchase> items = [];
+
+    for (int i = 0; i <= selectedDate.difference(firstDayOfYear).inDays; i++) {
+      final currentDate = rangeStart.add(Duration(days: i));
+      final dateString =
+          '${currentDate.year}/${currentDate.month}/${currentDate.day}';
+      final dayItems = await _invoicesService.getPurchasesForSupplier(
+          dateString, widget.supplierName);
+      items.addAll(dayItems);
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _allItems = items;
+      _filteredItems = items;
+      _purchasesDataFuture = Future.value(items);
+    });
   }
 }

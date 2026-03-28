@@ -53,7 +53,9 @@ class _SupplierPreferencesScreenState extends State<SupplierPreferencesScreen> {
 
     final List<Map<String, String>> transactions = <Map<String, String>>[];
 
-    for (int i = 0; i <= selectedDate.difference(firstDayOfYear).inDays; i++) {
+    for (int i = 0;
+        !firstDayOfYear.add(Duration(days: i)).isAfter(selectedDate);
+        i++) {
       final currentDate = firstDayOfYear.add(Duration(days: i));
       final dateString =
           '${currentDate.year}/${currentDate.month}/${currentDate.day}';
