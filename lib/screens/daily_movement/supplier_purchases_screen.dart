@@ -826,21 +826,22 @@ class _SupplierPurchasesScreenState extends State<SupplierPurchasesScreen> {
                             padding: const EdgeInsets.symmetric(vertical: 8),
                             child: Row(
                               children: [
-                                _buildDataCell('المجموع', 1,
-                                    fontWeight: FontWeight.bold),
+                                _buildDataCell('المجموع', 4,
+                                    fontWeight: FontWeight.bold), // المادة
                                 _buildDataCell(totalCount.toStringAsFixed(0), 2,
-                                    fontWeight: FontWeight.bold),
-                                _buildDataCell('', 3),
+                                    fontWeight: FontWeight.bold), // العدد
+                                _buildDataCell('', 3,
+                                    fontWeight: FontWeight.bold), // العبوة
                                 _buildDataCell(
                                     totalStanding.toStringAsFixed(2), 2,
-                                    fontWeight: FontWeight.bold),
+                                    fontWeight: FontWeight.bold), // القائم
                                 _buildDataCell(totalNet.toStringAsFixed(2), 2,
-                                    fontWeight: FontWeight.bold),
+                                    fontWeight: FontWeight.bold), // الصافي
                                 _buildDataCell('', 2,
-                                    fontWeight: FontWeight.bold),
+                                    fontWeight: FontWeight.bold), // السعر
                                 _buildDataCell(totalGrand.toStringAsFixed(2), 3,
                                     fontWeight: FontWeight.bold,
-                                    color: Colors.red.shade900),
+                                    color: Colors.red.shade900), // الإجمالي
                               ],
                             ),
                           ),

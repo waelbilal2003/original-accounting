@@ -124,17 +124,38 @@ class CustomerIndexService {
     }
   }
 
-  Future<void> saveCustomer(String customer) async {
+  Future<bool> saveCustomer(String customer, {String startDate = ''}) async {
     await _ensureInitialized();
-    if (customer.trim().isEmpty) return;
+    if (customer.trim().isEmpty) return false;
     final normalizedCustomer = _normalizeCustomer(customer);
 
-    if (!_customerMap.values
-        .any((c) => c.name.toLowerCase() == normalizedCustomer.toLowerCase())) {
-      _customerMap[_nextId] = CustomerData(name: normalizedCustomer);
-      _nextId++;
-      await _saveToFile();
+    // البحث عن الزبون إذا كان موجوداً
+    for (var entry in _customerMap.entries) {
+      if (entry.value.name.toLowerCase() == normalizedCustomer.toLowerCase()) {
+        // موجود مسبقاً — تحديث تاريخ البدء إن كان فارغاً فقط
+        if (startDate.isNotEmpty && entry.value.startDate.isEmpty) {
+          entry.value.startDate = startDate;
+          await _saveToFile();
+        }
+        // إذا رصيده مقفل (غير صفر) نرفض الإضافة من شاشات الإدخال
+        if (entry.value.isBalanceLocked) return false;
+        return true;
+      }
     }
+
+    // غير موجود — نتحقق من رصيد البداية الإجمالي
+    // إذا يوجد أي زبون رصيده مقفل (غير صفر) نمنع إضافة زبائن جدد من شاشات الإدخال
+    final hasLockedBalance = _customerMap.values.any((c) => c.isBalanceLocked);
+    if (hasLockedBalance) return false;
+
+    // رصيد البداية صفر — يُسمح بالإضافة
+    _customerMap[_nextId] = CustomerData(
+      name: normalizedCustomer,
+      startDate: startDate,
+    );
+    _nextId++;
+    await _saveToFile();
+    return true;
   }
 
   String _normalizeCustomer(String customer) {
@@ -289,5 +310,27 @@ class CustomerIndexService {
   Future<Map<int, String>> getAllCustomersWithNumbers() async {
     await _ensureInitialized();
     return _customerMap.map((key, value) => MapEntry(key, value.name));
+  }
+
+  /// تُستخدم فقط من opening_balances_screen — تتجاوز قيد رصيد البداية
+  Future<void> forceAddCustomer(String customer,
+      {String startDate = ''}) async {
+    await _ensureInitialized();
+    if (customer.trim().isEmpty) return;
+    final normalizedCustomer = _normalizeCustomer(customer);
+
+    final exists = _customerMap.values
+        .any((c) => c.name.toLowerCase() == normalizedCustomer.toLowerCase());
+    if (!exists) {
+      _customerMap[_nextId] = CustomerData(
+        name: normalizedCustomer,
+        startDate: startDate,
+      );
+      _nextId++;
+      await _saveToFile();
+    }
+    if (startDate.isNotEmpty) {
+      await updateCustomerStartDate(normalizedCustomer, startDate);
+    }
   }
 }

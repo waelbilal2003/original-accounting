@@ -497,9 +497,11 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
 // حفظ المورد في الفهرس - معدلة لمنع تخزين حرف واحد
   void _saveSupplierToIndex(String supplier) {
     final trimmedSupplier = supplier.trim();
-    // منع تخزين حرف واحد أو قيمة فارغة
     if (trimmedSupplier.length > 1) {
-      _supplierIndexService.saveSupplier(trimmedSupplier);
+      _supplierIndexService.saveSupplier(
+        trimmedSupplier,
+        startDate: widget.selectedDate,
+      );
     }
   }
 

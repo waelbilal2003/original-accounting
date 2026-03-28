@@ -1257,6 +1257,11 @@ class _SalesScreenState extends State<SalesScreen> {
           }
         }
 
+        // --- السطر الذي تم تعديله ---
+        // نقرأ اسم الزبون من المتحكم مباشرة لضمان الحصول على آخر قيمة
+        final customerNameToSave =
+            cashOrDebtValues[i] == 'دين' ? controllers[7].text.trim() : null;
+
         final sale = Sale(
           serialNumber: (allSalesFromUI.length + 1).toString(),
           material: controllers[0].text,
@@ -1270,8 +1275,7 @@ class _SalesScreenState extends State<SalesScreen> {
           total: controllers[6].text,
           cashOrDebt: cashOrDebtValues[i],
           empties: '', // محذوف من الواجهة
-          customerName:
-              cashOrDebtValues[i] == 'دين' ? customerNames[i].trim() : null,
+          customerName: customerNameToSave, // استخدام القيمة المحدثة هنا
           sellerName: sellerNames[i],
         );
 
@@ -1500,7 +1504,10 @@ class _SalesScreenState extends State<SalesScreen> {
   void _saveCustomerToIndex(String customer) {
     final trimmedCustomer = customer.trim();
     if (trimmedCustomer.length >= 3) {
-      _customerIndexService.saveCustomer(trimmedCustomer);
+      _customerIndexService.saveCustomer(
+        trimmedCustomer,
+        startDate: widget.selectedDate,
+      );
     }
   }
 

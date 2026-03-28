@@ -1000,12 +1000,11 @@ class _BoxScreenState extends State<BoxScreen> {
       });
 
       if (value.trim().isNotEmpty && value.trim().length > 1) {
-        // لا يتم حفظ الأسماء الجديدة - فقط الزبائن والموردين المخزنين مسبقاً مقبولون
-        // if (accountTypeValues[rowIndex] == 'زبون') {
-        //   _saveCustomerToIndex(value);
-        // } else if (accountTypeValues[rowIndex] == 'مورد') {
-        //   _saveSupplierToIndex(value);
-        // }
+        if (accountTypeValues[rowIndex] == 'زبون') {
+          _saveCustomerToIndex(value);
+        } else if (accountTypeValues[rowIndex] == 'مورد') {
+          _saveSupplierToIndex(value);
+        }
       }
 
       FocusScope.of(context).requestFocus(rowFocusNodes[rowIndex][4]);
@@ -1574,16 +1573,17 @@ class _BoxScreenState extends State<BoxScreen> {
       _currentSuggestionType = '';
     });
 
-    // 1. وضع الاسم الكامل في الحقل
     rowControllers[rowIndex][3].text = suggestion;
     _hasUnsavedChanges = true;
 
-    // لا يتم حفظ الاسم في الفهرس - فقط استقبال الاقتراحات المخزنة مسبقاً
-    // if (suggestion.trim().length > 1) {
-    //   _saveCustomerToIndex(suggestion);
-    // }
+    // تحديث تاريخ البدء إذا كان فارغاً
+    if (suggestion.trim().length > 1) {
+      _customerIndexService.saveCustomer(
+        suggestion.trim(),
+        startDate: widget.selectedDate,
+      );
+    }
 
-    // 2. تحديث شريط الرصيد فوراً بناءً على الاسم الكامل الجديد
     _fetchAndCalculateBalance(rowIndex);
 
     Future.delayed(const Duration(milliseconds: 50), () {
@@ -1602,16 +1602,17 @@ class _BoxScreenState extends State<BoxScreen> {
       _currentSuggestionType = '';
     });
 
-    // 1. وضع الاسم الكامل في الحقل
     rowControllers[rowIndex][3].text = suggestion;
     _hasUnsavedChanges = true;
 
-    // لا يتم حفظ الاسم في الفهرس - فقط استقبال الاقتراحات المخزنة مسبقاً
-    // if (suggestion.trim().length > 1) {
-    //   _saveSupplierToIndex(suggestion);
-    // }
+    // تحديث تاريخ البدء إذا كان فارغاً
+    if (suggestion.trim().length > 1) {
+      _supplierIndexService.saveSupplier(
+        suggestion.trim(),
+        startDate: widget.selectedDate,
+      );
+    }
 
-    // 2. تحديث شريط الرصيد فوراً بناءً على الاسم الكامل الجديد
     _fetchAndCalculateBalance(rowIndex);
 
     Future.delayed(const Duration(milliseconds: 50), () {
@@ -1621,25 +1622,26 @@ class _BoxScreenState extends State<BoxScreen> {
     });
   }
 
-/*
-  // حفظ الزبون في الفهرس - معطل: لا يُسمح بإضافة أسماء جديدة، فقط استقبال المخزن
   void _saveCustomerToIndex(String customer) {
-    // final trimmedCustomer = customer.trim();
-    // if (trimmedCustomer.length > 1) {
-    //   _customerIndexService.saveCustomer(trimmedCustomer);
-    // }
+    final trimmedCustomer = customer.trim();
+    if (trimmedCustomer.length > 1) {
+      _customerIndexService.saveCustomer(
+        trimmedCustomer,
+        startDate: widget.selectedDate,
+      );
+    }
   }
 
-  */
-  // حفظ المورد في الفهرس - معطل: لا يُسمح بإضافة أسماء جديدة، فقط استقبال المخزن
-  /*
   void _saveSupplierToIndex(String supplier) {
-    // final trimmedSupplier = supplier.trim();
-    // if (trimmedSupplier.length > 1) {
-    //   _supplierIndexService.saveSupplier(trimmedSupplier);
-    // }
+    final trimmedSupplier = supplier.trim();
+    if (trimmedSupplier.length > 1) {
+      _supplierIndexService.saveSupplier(
+        trimmedSupplier,
+        startDate: widget.selectedDate,
+      );
+    }
   }
-    */
+
   void _toggleFullScreenSuggestions(
       {required String type, required bool show}) {
     if (mounted) {
