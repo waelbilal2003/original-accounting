@@ -1940,6 +1940,7 @@ class _BoxScreenState extends State<BoxScreen> {
     if (!mounted) return;
 
     setState(() {
+      // إزالة الصفوف المستوردة السابقة لتجنب التكرار
       for (int i = rowControllers.length - 1; i >= 0; i--) {
         if (i < rowSourceTypes.length &&
             (rowSourceTypes[i] == 'sales' || rowSourceTypes[i] == 'purchase')) {
@@ -1953,21 +1954,22 @@ class _BoxScreenState extends State<BoxScreen> {
         }
       }
 
+      // ── المبيعات النقدية ──
       if (salesDoc != null) {
         for (var sale in salesDoc.sales) {
           if (sale.cashOrDebt == 'نقدي') {
-            final String accountName =
-                (sale.customerName != null && sale.customerName!.isNotEmpty)
-                    ? sale.customerName!
-                    : (sale.sellerName.isNotEmpty
-                        ? sale.sellerName
-                        : 'مبيعات نقدية');
+            // في النقدي: customerName يكون null دائماً
+            // نستخدم affiliation (الانتماء/الزبون) كاسم الحساب
+            final String accountName = (sale.affiliation.trim().isNotEmpty)
+                ? sale.affiliation.trim()
+                : 'مبيعات نقدية';
 
+            // [0]=مقبوض، [1]=مدفوع، [2]=الحساب، [3]=ملاحظات
             final controllers = [
-              TextEditingController(text: sale.total), // مقبوض
-              TextEditingController(text: ''), // مدفوع
-              TextEditingController(text: accountName), // الحساب
-              TextEditingController(text: 'مبيعات نقدية'), // ملاحظات
+              TextEditingController(text: sale.total), // [0] مقبوض
+              TextEditingController(text: ''), // [1] مدفوع
+              TextEditingController(text: accountName), // [2] الحساب
+              TextEditingController(text: 'مبيعات نقدية'), // [3] ملاحظات
             ];
             final focusNodes = List.generate(4, (_) => FocusNode());
             rowControllers.add(controllers);
@@ -1979,18 +1981,22 @@ class _BoxScreenState extends State<BoxScreen> {
         }
       }
 
+      // ── المشتريات النقدية ──
       if (purchaseDoc != null) {
         for (var purchase in purchaseDoc.purchases) {
           if (purchase.cashOrDebt == 'نقدي') {
-            final String accountName = purchase.sellerName.isNotEmpty
-                ? purchase.sellerName
+            // اسم المورد مخزن في حقل affiliation وليس sellerName
+            // sellerName = اسم الموظف/البائع، affiliation = اسم المورد
+            final String accountName = purchase.affiliation.trim().isNotEmpty
+                ? purchase.affiliation.trim()
                 : 'مشتريات نقدية';
 
+            // [0]=مقبوض، [1]=مدفوع، [2]=الحساب، [3]=ملاحظات
             final controllers = [
-              TextEditingController(text: ''), // مقبوض
-              TextEditingController(text: purchase.total), // مدفوع
-              TextEditingController(text: accountName), // الحساب
-              TextEditingController(text: 'مشتريات نقدية'), // ملاحظات
+              TextEditingController(text: ''), // [0] مقبوض
+              TextEditingController(text: purchase.total), // [1] مدفوع
+              TextEditingController(text: accountName), // [2] الحساب
+              TextEditingController(text: 'مشتريات نقدية'), // [3] ملاحظات
             ];
             final focusNodes = List.generate(4, (_) => FocusNode());
             rowControllers.add(controllers);

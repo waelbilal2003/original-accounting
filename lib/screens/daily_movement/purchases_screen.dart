@@ -716,7 +716,7 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
             TableComponents.buildTableHeaderCell('الصافي'),
             TableComponents.buildTableHeaderCell('السعر'),
             TableComponents.buildTableHeaderCell('الإجمالي'),
-            TableComponents.buildTableHeaderCell('نقدي او دين'),
+            TableComponents.buildTableHeaderCell('نقدي/دين'),
           ],
         ),
       ],
@@ -931,7 +931,7 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
       // حقل السعر - عرض نافذة نقدي/دين
       _showCashOrDebtDialog(rowIndex);
     } else if (colIndex == 8) {
-      // نقدي او دين - إنشاء صف جديد
+      // نقدي/دين - إنشاء صف جديد
       _addNewRow();
       if (rowControllers.isNotEmpty) {
         final newRowIndex = rowControllers.length - 1;

@@ -647,7 +647,7 @@ class _SalesScreenState extends State<SalesScreen> {
             TableComponents.buildTableHeaderCell('الصافي'),
             TableComponents.buildTableHeaderCell('السعر'),
             TableComponents.buildTableHeaderCell('الإجمالي'),
-            TableComponents.buildTableHeaderCell('نقدي أو دين'),
+            TableComponents.buildTableHeaderCell('نقدي/دين'),
           ],
         ),
       ],
