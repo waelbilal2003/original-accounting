@@ -48,16 +48,16 @@ class _CustomerPreferencesScreenState extends State<CustomerPreferencesScreen> {
 
   Future<void> _loadDetails() async {
     final selectedDate = _parseDate(widget.selectedDate);
+    final firstDayOfYear = DateTime(selectedDate.year, 1, 1);
 
-    DateTime rangeStart;
-    DateTime rangeEnd;
+    DateTime rangeStart = firstDayOfYear;
+    DateTime rangeEnd = DateTime.now(); // ← التعديل
 
-    if (_filterFrom != null || _filterTo != null) {
-      rangeStart = _filterFrom ?? DateTime(2000, 1, 1);
-      rangeEnd = _filterTo ?? DateTime.now();
-    } else {
-      rangeStart = DateTime(selectedDate.year, 1, 1);
-      rangeEnd = DateTime.now();
+    if (_filterFrom != null) {
+      rangeStart = _filterFrom!;
+    }
+    if (_filterTo != null) {
+      rangeEnd = _filterTo!;
     }
     final List<Map<String, String>> transactions = <Map<String, String>>[];
 
@@ -67,7 +67,8 @@ class _CustomerPreferencesScreenState extends State<CustomerPreferencesScreen> {
       final currentDate = rangeStart.add(Duration(days: i));
       final dateString =
           '${currentDate.year}/${currentDate.month}/${currentDate.day}';
-      // ① مسحوبات من يومية المبيعات
+
+      // باقي الكود كما هو ...
       final doc = await _salesService.loadDocumentForDate(dateString);
       if (doc != null) {
         for (var t in doc.sales) {
@@ -130,7 +131,6 @@ class _CustomerPreferencesScreenState extends State<CustomerPreferencesScreen> {
     });
     _applyFilter();
   }
-
   // ─── الفلتر ───────────────────────────────────────────────────────
 
   void _applyFilter() {

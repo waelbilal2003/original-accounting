@@ -48,18 +48,17 @@ class _SupplierPreferencesScreenState extends State<SupplierPreferencesScreen> {
 
   Future<void> _loadDetails() async {
     final selectedDate = _parseDate(widget.selectedDate);
+    final firstDayOfYear = DateTime(selectedDate.year, 1, 1);
 
-    DateTime rangeStart;
-    DateTime rangeEnd;
+    DateTime rangeStart = firstDayOfYear;
+    DateTime rangeEnd = DateTime.now(); // ← التعديل
 
-    if (_filterFrom != null || _filterTo != null) {
-      rangeStart = _filterFrom ?? DateTime(2000, 1, 1);
-      rangeEnd = _filterTo ?? DateTime.now();
-    } else {
-      rangeStart = DateTime(selectedDate.year, 1, 1);
-      rangeEnd = DateTime.now();
+    if (_filterFrom != null) {
+      rangeStart = _filterFrom!;
     }
-
+    if (_filterTo != null) {
+      rangeEnd = _filterTo!;
+    }
     final List<Map<String, String>> transactions = <Map<String, String>>[];
 
     int daysDiff = rangeEnd.difference(rangeStart).inDays;

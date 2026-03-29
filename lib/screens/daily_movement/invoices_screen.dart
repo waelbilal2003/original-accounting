@@ -884,18 +884,18 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
       _isFiltered = _filterFrom != null || _filterTo != null;
     });
 
+    // بدون فلتر: نحمل من بداية السنة حتى اليوم الحالي
     final selectedDate = _parseDateFromString(widget.selectedDate);
     if (selectedDate == null) return;
 
-    DateTime rangeStart;
-    DateTime rangeEnd;
+    DateTime rangeStart = DateTime(selectedDate.year, 1, 1);
+    DateTime rangeEnd = DateTime.now(); // ← التعديل: حتى اليوم دائماً بدون فلتر
 
-    if (_filterFrom != null || _filterTo != null) {
-      rangeStart = _filterFrom ?? DateTime(2000, 1, 1);
-      rangeEnd = _filterTo ?? DateTime.now();
-    } else {
-      rangeStart = DateTime(2000, 1, 1);
-      rangeEnd = DateTime.now();
+    if (_filterFrom != null) {
+      rangeStart = _filterFrom!;
+    }
+    if (_filterTo != null) {
+      rangeEnd = _filterTo!;
     }
 
     final List<InvoiceItem> items = [];
