@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'dart:async';
 import '../../models/box_model.dart';
 import '../../services/box_storage_service.dart';
-import '../../widgets/table_builder.dart' as TableBuilder;
 import '../../widgets/table_components.dart' as TableComponents;
 import '../../services/customer_index_service.dart';
 import '../../services/supplier_index_service.dart';
@@ -200,6 +199,8 @@ class _BoxScreenState extends State<BoxScreen> {
 
   Future<void> _loadGrandTotal() async {
     double totalRec = 0.0, totalPaid = 0.0;
+
+    // 1. جمع أرصدة يوميات الصندوق (السجلات اليدوية فقط)
     for (var dateInfo in _availableDates) {
       final doc =
           await _storageService.loadBoxDocumentForDate(dateInfo['date']!);
@@ -208,6 +209,35 @@ class _BoxScreenState extends State<BoxScreen> {
         totalPaid += double.tryParse(doc.totals['totalPaid'] ?? '0') ?? 0;
       }
     }
+
+    // 2. جمع المبيعات النقدية من جميع التواريخ المتاحة
+    final salesService = SalesStorageService();
+    final salesDates = await salesService.getAllAvailableDates();
+    for (var date in salesDates) {
+      final salesDoc = await salesService.loadSalesDocument(date);
+      if (salesDoc != null) {
+        for (var sale in salesDoc.sales) {
+          if (sale.cashOrDebt == 'نقدي') {
+            totalRec += double.tryParse(sale.total) ?? 0;
+          }
+        }
+      }
+    }
+
+    // 3. جمع المشتريات النقدية من جميع التواريخ المتاحة
+    final purchaseService = PurchaseStorageService();
+    final purchaseDates = await purchaseService.getAllAvailableDates();
+    for (var date in purchaseDates) {
+      final purchaseDoc = await purchaseService.loadPurchaseDocument(date);
+      if (purchaseDoc != null) {
+        for (var purchase in purchaseDoc.purchases) {
+          if (purchase.cashOrDebt == 'نقدي') {
+            totalPaid += double.tryParse(purchase.total) ?? 0;
+          }
+        }
+      }
+    }
+
     if (mounted) {
       setState(() {
         _grandTotalReceived = totalRec;
@@ -251,19 +281,15 @@ class _BoxScreenState extends State<BoxScreen> {
 
   void _addNewRow() {
     setState(() {
-      final newSerialNumber = (rowControllers.length + 1).toString();
-
+      // تغيير من 5 إلى 4 أعمدة (حذف العمود الأول للرقم التسلسلي)
       List<TextEditingController> newControllers =
-          List.generate(5, (index) => TextEditingController());
+          List.generate(4, (index) => TextEditingController());
 
-      List<FocusNode> newFocusNodes = List.generate(5, (index) => FocusNode());
+      List<FocusNode> newFocusNodes = List.generate(4, (index) => FocusNode());
 
-      newControllers[0].text = newSerialNumber;
-
-      // إضافة مستمع FocusNode لحقل اسم الحساب
-      newFocusNodes[3].addListener(() {
-        if (!newFocusNodes[3].hasFocus) {
-          // إخفاء الاقتراحات عند فقدان التركيز
+      // إضافة مستمع FocusNode لحقل اسم الحساب (الآن index 2 بدلاً من 3)
+      newFocusNodes[2].addListener(() {
+        if (!newFocusNodes[2].hasFocus) {
           Future.delayed(const Duration(milliseconds: 100), () {
             if (mounted) {
               setState(() {
@@ -279,10 +305,8 @@ class _BoxScreenState extends State<BoxScreen> {
         }
       });
 
-      // إضافة مستمعات للتغيير
       _addChangeListenersToControllers(newControllers, rowControllers.length);
 
-      // تخزين اسم البائع للصف الجديد
       sellerNames.add(widget.sellerName);
 
       rowControllers.add(newControllers);
@@ -294,7 +318,8 @@ class _BoxScreenState extends State<BoxScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (rowFocusNodes.isNotEmpty) {
         final newRowIndex = rowFocusNodes.length - 1;
-        FocusScope.of(context).requestFocus(rowFocusNodes[newRowIndex][1]);
+        // التركيز على حقل المقبوض (index 0) بدلاً من 1
+        FocusScope.of(context).requestFocus(rowFocusNodes[newRowIndex][0]);
       }
     });
   }
@@ -316,33 +341,30 @@ class _BoxScreenState extends State<BoxScreen> {
   // دالة مساعدة لإضافة المستمعات
   void _addChangeListenersToControllers(
       List<TextEditingController> controllers, int rowIndex) {
-    // حقل المقبوض (تعديل: إضافة حساب الرصيد الفوري)
-    controllers[1].addListener(() {
+    // حقل المقبوض (index 0)
+    controllers[0].addListener(() {
       _hasUnsavedChanges = true;
-      if (controllers[1].text.isNotEmpty) {
-        controllers[2].text = '';
-      }
-      _calculateAllTotals();
-      // استدعاء حساب الرصيد والباقي فورياً عند الكتابة
-      _fetchAndCalculateBalance(rowIndex);
-    });
-
-    // حقل المدفوع (تعديل: إضافة حساب الرصيد الفوري)
-    controllers[2].addListener(() {
-      _hasUnsavedChanges = true;
-      if (controllers[2].text.isNotEmpty) {
+      if (controllers[0].text.isNotEmpty) {
         controllers[1].text = '';
       }
       _calculateAllTotals();
-      // استدعاء حساب الرصيد والباقي فورياً عند الكتابة
       _fetchAndCalculateBalance(rowIndex);
     });
 
-    // حقل اسم الحساب (الحقل رقم 3)
-    controllers[3].addListener(() {
+    // حقل المدفوع (index 1)
+    controllers[1].addListener(() {
+      _hasUnsavedChanges = true;
+      if (controllers[1].text.isNotEmpty) {
+        controllers[0].text = '';
+      }
+      _calculateAllTotals();
+      _fetchAndCalculateBalance(rowIndex);
+    });
+
+    // حقل اسم الحساب (index 2)
+    controllers[2].addListener(() {
       _hasUnsavedChanges = true;
 
-      // فقط تحديث الاقتراحات بناءً على نوع الحساب
       if (accountTypeValues[rowIndex] == 'زبون') {
         _updateCustomerSuggestions(rowIndex);
       } else if (accountTypeValues[rowIndex] == 'مورد') {
@@ -350,18 +372,16 @@ class _BoxScreenState extends State<BoxScreen> {
       }
     });
 
-    // حقل الملاحظات
-    controllers[4].addListener(() => _hasUnsavedChanges = true);
+    // حقل الملاحظات (index 3)
+    controllers[3].addListener(() => _hasUnsavedChanges = true);
 
-    // إضافة مستمع FocusNode لحقل اسم الحساب (الحقل 3) فقط لإخفاء الاقتراحات عند فقدان التركيز
-    if (rowIndex < rowFocusNodes.length && rowFocusNodes[rowIndex].length > 3) {
-      rowFocusNodes[rowIndex][3].addListener(() {
-        if (!rowFocusNodes[rowIndex][3].hasFocus) {
-          // إخفاء الاقتراحات بعد تأخير بسيط
+    // إضافة مستمع FocusNode لحقل اسم الحساب
+    if (rowIndex < rowFocusNodes.length && rowFocusNodes[rowIndex].length > 2) {
+      rowFocusNodes[rowIndex][2].addListener(() {
+        if (!rowFocusNodes[rowIndex][2].hasFocus) {
           Future.delayed(const Duration(milliseconds: 100), () {
             if (mounted) {
               setState(() {
-                // إخفاء الاقتراحات فقط
                 _customerSuggestions = [];
                 _supplierSuggestions = [];
                 _activeCustomerRowIndex = null;
@@ -410,7 +430,6 @@ class _BoxScreenState extends State<BoxScreen> {
   // تعديل _loadJournal لاستخدام الدالة المساعدة
   void _loadJournal(BoxDocument document) {
     setState(() {
-      // تنظيف المتحكمات القديمة
       for (var row in rowControllers) {
         for (var controller in row) {
           controller.dispose();
@@ -422,19 +441,17 @@ class _BoxScreenState extends State<BoxScreen> {
         }
       }
 
-      // إعادة تهيئة القوائم
       rowControllers.clear();
       rowFocusNodes.clear();
       accountTypeValues.clear();
       sellerNames.clear();
       rowSourceTypes.clear();
 
-      // تحميل السجلات من الوثيقة
       for (int i = 0; i < document.transactions.length; i++) {
         var transaction = document.transactions[i];
 
+        // تغيير من 5 إلى 4 أعمدة
         List<TextEditingController> newControllers = [
-          TextEditingController(text: transaction.serialNumber),
           TextEditingController(text: transaction.received),
           TextEditingController(text: transaction.paid),
           TextEditingController(text: transaction.accountName),
@@ -442,17 +459,14 @@ class _BoxScreenState extends State<BoxScreen> {
         ];
 
         List<FocusNode> newFocusNodes =
-            List.generate(5, (index) => FocusNode());
+            List.generate(4, (index) => FocusNode());
 
-        // تخزين اسم البائع لهذا الصف
         sellerNames.add(transaction.sellerName);
         rowSourceTypes.add('box');
 
-        // التحقق إذا كان السجل مملوكاً للبائع الحالي
         final bool isOwnedByCurrentSeller =
             transaction.sellerName == widget.sellerName;
 
-        // إضافة مستمعات للتغيير فقط إذا كان السجل مملوكاً للبائع الحالي
         if (isOwnedByCurrentSeller) {
           _addChangeListenersToControllers(newControllers, i);
         }
@@ -462,7 +476,6 @@ class _BoxScreenState extends State<BoxScreen> {
         accountTypeValues.add(transaction.accountType);
       }
 
-      // تحميل المجاميع
       if (document.totals.isNotEmpty) {
         totalReceivedController.text =
             document.totals['totalReceived'] ?? '0.00';
@@ -496,18 +509,16 @@ class _BoxScreenState extends State<BoxScreen> {
   Widget _buildTableHeader() {
     return Table(
       columnWidths: {
-        0: FlexColumnWidth(0.09),
-        1: FlexColumnWidth(0.18),
-        2: FlexColumnWidth(0.18),
-        3: FlexColumnWidth(0.37),
-        4: FlexColumnWidth(0.18),
+        0: FlexColumnWidth(0.2), // مقبوض
+        1: FlexColumnWidth(0.2), // مدفوع
+        2: FlexColumnWidth(0.4), // الحساب
+        3: FlexColumnWidth(0.2), // ملاحظات
       },
       border: TableBorder.all(color: Colors.grey, width: 0.5),
       children: [
         TableRow(
           decoration: BoxDecoration(color: Colors.grey[200]),
           children: [
-            TableComponents.buildTableHeaderCell('ت'),
             TableComponents.buildTableHeaderCell('مقبوض'),
             TableComponents.buildTableHeaderCell('مدفوع'),
             TableComponents.buildTableHeaderCell('الحساب'),
@@ -527,7 +538,6 @@ class _BoxScreenState extends State<BoxScreen> {
           (i < rowSourceTypes.length) ? rowSourceTypes[i] : 'box';
       final bool isReadOnly = sourceType == 'sales' || sourceType == 'purchase';
 
-      // لون خلفية مختلف للصفوف المستوردة
       Color? rowColor;
       if (sourceType == 'sales') {
         rowColor = Colors.green[50];
@@ -539,14 +549,12 @@ class _BoxScreenState extends State<BoxScreen> {
         TableRow(
           decoration: rowColor != null ? BoxDecoration(color: rowColor) : null,
           children: [
-            _buildTableCell(rowControllers[i][0], rowFocusNodes[i][0], i, 0,
+            _buildReceivedCell(rowControllers[i][0], rowFocusNodes[i][0], i, 0,
                 !isReadOnly && isOwnedByCurrentSeller),
-            _buildReceivedCell(rowControllers[i][1], rowFocusNodes[i][1], i, 1,
+            _buildPaidCell(rowControllers[i][1], rowFocusNodes[i][1], i, 1,
                 !isReadOnly && isOwnedByCurrentSeller),
-            _buildPaidCell(rowControllers[i][2], rowFocusNodes[i][2], i, 2,
-                !isReadOnly && isOwnedByCurrentSeller),
-            _buildAccountCell(i, 3, !isReadOnly && isOwnedByCurrentSeller),
-            _buildNotesCell(rowControllers[i][4], rowFocusNodes[i][4], i, 4,
+            _buildAccountCell(i, 2, !isReadOnly && isOwnedByCurrentSeller),
+            _buildNotesCell(rowControllers[i][3], rowFocusNodes[i][3], i, 3,
                 !isReadOnly && isOwnedByCurrentSeller),
           ],
         ),
@@ -558,11 +566,10 @@ class _BoxScreenState extends State<BoxScreen> {
         TableRow(
           decoration: BoxDecoration(color: Colors.yellow[50]),
           children: [
-            _buildEmptyCell(),
             TableComponents.buildTotalCell(totalReceivedController),
             TableComponents.buildTotalCell(totalPaidController),
-            _buildEmptyCell(),
-            _buildEmptyCell(),
+            TableComponents.buildTotalLabelCell(''), // الحساب (فارغ)
+            TableComponents.buildTotalLabelCell(''), // ملاحظات (فارغ)
           ],
         ),
       );
@@ -570,51 +577,14 @@ class _BoxScreenState extends State<BoxScreen> {
 
     return Table(
       columnWidths: {
-        0: FlexColumnWidth(0.09),
-        1: FlexColumnWidth(0.18),
-        2: FlexColumnWidth(0.18),
-        3: FlexColumnWidth(0.37),
-        4: FlexColumnWidth(0.18),
+        0: FlexColumnWidth(0.2), // مقبوض
+        1: FlexColumnWidth(0.2), // مدفوع
+        2: FlexColumnWidth(0.4), // الحساب
+        3: FlexColumnWidth(0.2), // ملاحظات
       },
       border: TableBorder.all(color: Colors.grey, width: 0.5),
       children: contentRows,
     );
-  }
-
-  Widget _buildTableCell(TextEditingController controller, FocusNode focusNode,
-      int rowIndex, int colIndex, bool isOwnedByCurrentSeller) {
-    bool isSerialField = colIndex == 0;
-
-    Widget cell = TableBuilder.buildTableCell(
-      controller: controller,
-      focusNode: focusNode,
-      isSerialField: isSerialField,
-      isNumericField: false,
-      rowIndex: rowIndex,
-      colIndex: colIndex,
-      scrollToField: _scrollToField,
-      onFieldSubmitted: (value, rIndex, cIndex) =>
-          _handleFieldSubmitted(value, rIndex, cIndex),
-      onFieldChanged: (value, rIndex, cIndex) =>
-          _handleFieldChanged(value, rIndex, cIndex),
-      inputFormatters: null,
-    );
-
-    if (!isOwnedByCurrentSeller) {
-      return IgnorePointer(
-        child: Opacity(
-          opacity: 0.7,
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.grey[100],
-            ),
-            child: cell,
-          ),
-        ),
-      );
-    }
-
-    return cell;
   }
 
   Widget _buildReceivedCell(
@@ -634,7 +604,7 @@ class _BoxScreenState extends State<BoxScreen> {
         enabled:
             isOwnedByCurrentSeller && rowControllers[rowIndex][2].text.isEmpty,
         style: TextStyle(
-          fontSize: 12,
+          fontSize: 16,
           fontWeight: FontWeight.w600,
           color: Colors.black,
         ),
@@ -697,7 +667,7 @@ class _BoxScreenState extends State<BoxScreen> {
         enabled:
             isOwnedByCurrentSeller && rowControllers[rowIndex][1].text.isEmpty,
         style: TextStyle(
-          fontSize: 12,
+          fontSize: 16,
           fontWeight: FontWeight.w600,
           color: Colors.black,
         ),
@@ -746,28 +716,23 @@ class _BoxScreenState extends State<BoxScreen> {
   // تحديث خلية الحساب لدعم كلا النوعين
   Widget _buildAccountCell(
       int rowIndex, int colIndex, bool isOwnedByCurrentSeller) {
-    // 1. استخدام دالة التحقق المركزية
     final bool canEdit = _canEditRow(rowIndex);
-
     final String accountType = accountTypeValues[rowIndex];
     final TextEditingController accountNameController =
-        rowControllers[rowIndex][3];
-    final FocusNode accountNameFocusNode = rowFocusNodes[rowIndex][3];
+        rowControllers[rowIndex][2]; // index 2
+    final FocusNode accountNameFocusNode = rowFocusNodes[rowIndex][2];
 
     Widget cellContent;
 
-    // إذا كان نوع الحساب تم اختياره (زبون، مورد)
     if (accountType.isNotEmpty) {
       cellContent = Container(
         padding: const EdgeInsets.all(1),
         constraints: const BoxConstraints(minHeight: 25),
         child: Row(
           children: [
-            // جزء عرض نوع الحساب وقابلية تغييره
             Expanded(
               flex: 2,
               child: InkWell(
-                // لا يسمح بفتح الديالوج إلا إذا كان يملك الصلاحية
                 onTap: canEdit ? () => _showAccountTypeDialog(rowIndex) : null,
                 child: Container(
                   decoration: BoxDecoration(
@@ -776,7 +741,6 @@ class _BoxScreenState extends State<BoxScreen> {
                       width: 0.5,
                     ),
                     borderRadius: BorderRadius.circular(2),
-                    // تمييز خلفية النوع المختار
                     color: _getAccountTypeColor(accountType).withOpacity(0.1),
                   ),
                   padding:
@@ -785,7 +749,7 @@ class _BoxScreenState extends State<BoxScreen> {
                     child: Text(
                       accountType,
                       style: TextStyle(
-                        fontSize: 10,
+                        fontSize: 16,
                         color: _getAccountTypeColor(accountType),
                         fontWeight: FontWeight.bold,
                       ),
@@ -798,17 +762,15 @@ class _BoxScreenState extends State<BoxScreen> {
               ),
             ),
             const SizedBox(width: 4),
-            // جزء إدخال اسم الحساب (مع دعم الاقتراحات)
             Expanded(
               flex: 5,
               child: TextField(
                 controller: accountNameController,
                 focusNode: accountNameFocusNode,
                 textAlign: TextAlign.right,
-                // قفل أو فتح الحقل بناءً على الصلاحية
                 enabled: canEdit,
                 style: const TextStyle(
-                  fontSize: 11,
+                  fontSize: 16,
                   fontWeight: FontWeight.w600,
                   color: Colors.black,
                 ),
@@ -819,14 +781,13 @@ class _BoxScreenState extends State<BoxScreen> {
                     borderSide: BorderSide(color: Colors.grey, width: 0.5),
                   ),
                   hintText: _getAccountHintText(accountType),
-                  hintStyle: const TextStyle(fontSize: 10, color: Colors.grey),
+                  hintStyle: const TextStyle(fontSize: 16, color: Colors.grey),
                   isDense: true,
                 ),
                 onSubmitted: (value) =>
                     _handleFieldSubmitted(value, rowIndex, colIndex),
                 onChanged: (value) {
                   _hasUnsavedChanges = true;
-                  // تفعيل الاقتراحات حسب النوع
                   if (accountType == 'زبون') {
                     _updateCustomerSuggestions(rowIndex);
                   } else if (accountType == 'مورد') {
@@ -839,7 +800,6 @@ class _BoxScreenState extends State<BoxScreen> {
         ),
       );
     } else {
-      // عرض زر "اختر" في حال كان السجل جديداً ولم يحدد نوعه بعد
       cellContent = InkWell(
         onTap: canEdit ? () => _showAccountTypeDialog(rowIndex) : null,
         child: Container(
@@ -854,21 +814,20 @@ class _BoxScreenState extends State<BoxScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: const [
               Text('اختر النوع',
-                  style: TextStyle(fontSize: 10, color: Colors.blueGrey)),
-              Icon(Icons.arrow_drop_down, size: 14, color: Colors.blueGrey),
+                  style: TextStyle(fontSize: 16, color: Colors.blueGrey)),
+              Icon(Icons.arrow_drop_down, size: 16, color: Colors.blueGrey),
             ],
           ),
         ),
       );
     }
 
-    // 2. تطبيق الحماية البصرية والمنطقية النهائية (مثل شاشة الاستلام)
     if (!canEdit) {
       return IgnorePointer(
         child: Opacity(
-          opacity: 0.6, // جعل السجل باهتاً للدلالة على أنه للقراءة فقط
+          opacity: 0.6,
           child: Container(
-            color: Colors.grey[100], // خلفية رمادية خفيفة
+            color: Colors.grey[100],
             child: cellContent,
           ),
         ),
@@ -876,22 +835,6 @@ class _BoxScreenState extends State<BoxScreen> {
     }
 
     return cellContent;
-  }
-
-  Widget _buildEmptyCell() {
-    return Container(
-      padding: const EdgeInsets.all(1),
-      constraints: const BoxConstraints(minHeight: 25),
-      child: TextField(
-        controller: TextEditingController()..text = '',
-        focusNode: FocusNode(),
-        enabled: false,
-        decoration: const InputDecoration(
-          contentPadding: EdgeInsets.symmetric(horizontal: 2, vertical: 1),
-          border: InputBorder.none,
-        ),
-      ),
-    );
   }
 
   Widget _buildNotesCell(TextEditingController controller, FocusNode focusNode,
@@ -905,7 +848,7 @@ class _BoxScreenState extends State<BoxScreen> {
         textAlign: TextAlign.center,
         enabled: isOwnedByCurrentSeller,
         style: TextStyle(
-          fontSize: 12,
+          fontSize: 16,
           fontWeight: FontWeight.w600,
           color: Colors.black,
         ),
@@ -982,38 +925,32 @@ class _BoxScreenState extends State<BoxScreen> {
     }
 
     if (colIndex == 0) {
-      FocusScope.of(context).requestFocus(rowFocusNodes[rowIndex][1]);
-    } else if (colIndex == 1) {
+      // مقبوض
       if (value.isNotEmpty) {
         _showAccountTypeDialog(rowIndex);
       } else {
-        FocusScope.of(context).requestFocus(rowFocusNodes[rowIndex][2]);
+        FocusScope.of(context).requestFocus(rowFocusNodes[rowIndex][1]);
       }
-    } else if (colIndex == 2) {
+    } else if (colIndex == 1) {
+      // مدفوع
       _showAccountTypeDialog(rowIndex);
-    } else if (colIndex == 3) {
-      // 1. الأولوية القصوى: هل يوجد اقتراح زبون مطابق؟
+    } else if (colIndex == 2) {
+      // الحساب
       if (accountTypeValues[rowIndex] == 'زبون' &&
           _customerSuggestions.isNotEmpty) {
         _selectCustomerSuggestion(_customerSuggestions[0], rowIndex);
-        // *** إضافة: الحفظ الفوري بعد اختيار الاقتراح ***
         _saveCurrentRecord(silent: true, reloadAfterSave: false);
         return;
       }
 
-      // 2. الأولوية القصوى: هل يوجد اقتراح مورد مطابق؟
       if (accountTypeValues[rowIndex] == 'مورد' &&
           _supplierSuggestions.isNotEmpty) {
         _selectSupplierSuggestion(_supplierSuggestions[0], rowIndex);
-        // *** إضافة: الحفظ الفوري بعد اختيار الاقتراح ***
         _saveCurrentRecord(silent: true, reloadAfterSave: false);
         return;
       }
 
-      // *** تعديل: المنطق الرئيسي لتحديث الرصيد عند ضغط Enter ***
-      // 3. إذا لم يتم اختيار أي اقتراح، نقوم بالحفظ ثم تحديث شريط الرصيد
       _saveCurrentRecord(silent: true, reloadAfterSave: false).then((_) {
-        // نستدعي هذه الدالة بعد اكتمال الحفظ لضمان قراءة الرصيد المحدث
         if (mounted) {
           _fetchAndCalculateBalance(rowIndex);
         }
@@ -1027,38 +964,15 @@ class _BoxScreenState extends State<BoxScreen> {
         }
       }
 
-      FocusScope.of(context).requestFocus(rowFocusNodes[rowIndex][4]);
-    } else if (colIndex == 4) {
+      FocusScope.of(context).requestFocus(rowFocusNodes[rowIndex][3]);
+    } else if (colIndex == 3) {
+      // ملاحظات
       _addNewRow();
       if (rowControllers.isNotEmpty) {
         final newRowIndex = rowControllers.length - 1;
-        FocusScope.of(context).requestFocus(rowFocusNodes[newRowIndex][1]);
+        FocusScope.of(context).requestFocus(rowFocusNodes[newRowIndex][0]);
       }
     }
-  }
-
-  void _handleFieldChanged(String value, int rowIndex, int colIndex) {
-    if (!_canEditRow(rowIndex)) {
-      return;
-    }
-
-    setState(() {
-      _hasUnsavedChanges = true;
-
-      if (colIndex == 0) {
-        for (int i = 0; i < rowControllers.length; i++) {
-          rowControllers[i][0].text = (i + 1).toString();
-        }
-      }
-
-      if (colIndex == 1 && value.isNotEmpty) {
-        rowControllers[rowIndex][2].text = '';
-        _calculateAllTotals();
-      } else if (colIndex == 2 && value.isNotEmpty) {
-        rowControllers[rowIndex][1].text = '';
-        _calculateAllTotals();
-      }
-    });
   }
 
   void _showAccountTypeDialog(int rowIndex) {
@@ -1191,7 +1105,7 @@ class _BoxScreenState extends State<BoxScreen> {
                   Text(
                     'الصندوق - ${widget.selectedDate}',
                     style: const TextStyle(
-                        fontWeight: FontWeight.bold, fontSize: 14, height: 1.5),
+                        fontWeight: FontWeight.bold, fontSize: 16, height: 1.5),
                     textAlign: TextAlign.center,
                   ),
                   Directionality(
@@ -1202,12 +1116,12 @@ class _BoxScreenState extends State<BoxScreen> {
                       children: [
                         const Text('الرصيد الكلي: ',
                             style:
-                                TextStyle(fontSize: 11, color: Colors.white70)),
+                                TextStyle(fontSize: 16, color: Colors.white70)),
                         Text(
                           (_grandTotalReceived - _grandTotalPaid)
                               .toStringAsFixed(2),
                           style: TextStyle(
-                            fontSize: 13,
+                            fontSize: 16,
                             fontWeight: FontWeight.bold,
                             color: (_grandTotalReceived - _grandTotalPaid) >= 0
                                 ? Colors.lightGreenAccent
@@ -1381,27 +1295,24 @@ class _BoxScreenState extends State<BoxScreen> {
 
     setState(() => _isSaving = true);
 
-    // 1. تجميع السجلات الحالية من الواجهة
-    // مع تجاهل الصفوف المستوردة من المبيعات والمشتريات
     final List<BoxTransaction> allTransFromUI = [];
     for (int i = 0; i < rowControllers.length; i++) {
-      // تجاهل الصفوف المستوردة من المبيعات والمشتريات (للقراءة فقط)
       if (i < rowSourceTypes.length &&
           (rowSourceTypes[i] == 'sales' || rowSourceTypes[i] == 'purchase')) {
         continue;
       }
 
       final controllers = rowControllers[i];
-      if (controllers[1].text.isNotEmpty ||
-          controllers[2].text.isNotEmpty ||
-          controllers[3].text.isNotEmpty) {
+      if (controllers[0].text.isNotEmpty ||
+          controllers[1].text.isNotEmpty ||
+          controllers[2].text.isNotEmpty) {
         final t = BoxTransaction(
           serialNumber: (allTransFromUI.length + 1).toString(),
-          received: controllers[1].text,
-          paid: controllers[2].text,
+          received: controllers[0].text,
+          paid: controllers[1].text,
           accountType: accountTypeValues[i],
-          accountName: controllers[3].text.trim(),
-          notes: controllers[4].text,
+          accountName: controllers[2].text.trim(),
+          notes: controllers[3].text,
           sellerName: sellerNames[i],
         );
         allTransFromUI.add(t);
@@ -1720,13 +1631,12 @@ class _BoxScreenState extends State<BoxScreen> {
 
   Future<void> _fetchAndCalculateBalance(int rowIndex) async {
     final String type = accountTypeValues[rowIndex];
-    final String name = rowControllers[rowIndex][3].text.trim();
+    final String name = rowControllers[rowIndex][2].text.trim(); // index 2
 
-    // القيم الحالية للصف الذي نعمل عليه (آخر عملية إدخال)
     final double currentReceived =
-        double.tryParse(rowControllers[rowIndex][1].text) ?? 0;
+        double.tryParse(rowControllers[rowIndex][0].text) ?? 0;
     final double currentPaid =
-        double.tryParse(rowControllers[rowIndex][2].text) ?? 0;
+        double.tryParse(rowControllers[rowIndex][1].text) ?? 0;
 
     if (name.isEmpty) {
       return;
@@ -1803,14 +1713,14 @@ class _BoxScreenState extends State<BoxScreen> {
               children: [
                 const Text(
                   'الحساب',
-                  style: TextStyle(fontSize: 10, color: Colors.white70),
+                  style: TextStyle(fontSize: 16, color: Colors.white70),
                 ),
                 Text(
                   _lastAccountName.length > 14
                       ? '${_lastAccountName.substring(0, 14)}...'
                       : _lastAccountName,
                   style: const TextStyle(
-                      fontSize: 13,
+                      fontSize: 16,
                       fontWeight: FontWeight.bold,
                       color: Colors.white),
                 ),
@@ -1822,11 +1732,11 @@ class _BoxScreenState extends State<BoxScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 const Text('الرصيد',
-                    style: TextStyle(fontSize: 10, color: Colors.white70)),
+                    style: TextStyle(fontSize: 16, color: Colors.white70)),
                 Text(
                   _lastFetchedBalance?.toStringAsFixed(2) ?? '0.00',
                   style: const TextStyle(
-                      fontSize: 13,
+                      fontSize: 16,
                       fontWeight: FontWeight.bold,
                       color: Colors.white),
                 ),
@@ -1838,11 +1748,11 @@ class _BoxScreenState extends State<BoxScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 const Text('الباقي',
-                    style: TextStyle(fontSize: 10, color: Colors.white70)),
+                    style: TextStyle(fontSize: 16, color: Colors.white70)),
                 Text(
                   _calculatedRemaining?.toStringAsFixed(2) ?? '0.00',
                   style: TextStyle(
-                    fontSize: 14,
+                    fontSize: 16,
                     fontWeight: FontWeight.bold,
                     color: (_calculatedRemaining ?? 0) >= 0
                         ? Colors.lightGreenAccent
@@ -1884,13 +1794,12 @@ class _BoxScreenState extends State<BoxScreen> {
         arabicFont = pw.Font.courier();
       }
 
-      final PdfColor headerColor =
-          PdfColor.fromInt(0xFFF3A30D); // برتقالي AppBar
+      final PdfColor headerColor = PdfColor.fromInt(0xFFF3A30D);
       final PdfColor headerTextColor = PdfColors.white;
       final PdfColor rowEvenColor = PdfColors.white;
-      final PdfColor rowOddColor =
-          PdfColor.fromInt(0xFFFFF3E0); // برتقالي فاتح جداً
+      final PdfColor rowOddColor = PdfColor.fromInt(0xFFFFF3E0);
       final PdfColor borderColor = PdfColor.fromInt(0xFFE0E0E0);
+
       pdf.addPage(
         pw.MultiPage(
           pageFormat: PdfPageFormat.a4,
@@ -1910,17 +1819,16 @@ class _BoxScreenState extends State<BoxScreen> {
                         child: pw.Text(
                             'تاريخ ${widget.selectedDate} - البائع ${widget.sellerName}',
                             style: const pw.TextStyle(
-                                fontSize: 12, color: PdfColors.grey700))),
+                                fontSize: 16, color: PdfColors.grey700))),
                     pw.SizedBox(height: 10),
                     pw.Table(
                       border:
                           pw.TableBorder.all(color: borderColor, width: 0.5),
                       columnWidths: {
-                        0: const pw.FlexColumnWidth(2),
-                        1: const pw.FlexColumnWidth(4),
-                        2: const pw.FlexColumnWidth(2),
-                        3: const pw.FlexColumnWidth(2),
-                        4: const pw.FlexColumnWidth(1),
+                        0: const pw.FlexColumnWidth(3), // ملاحظات
+                        1: const pw.FlexColumnWidth(4), // الحساب
+                        2: const pw.FlexColumnWidth(2), // مدفوع
+                        3: const pw.FlexColumnWidth(2), // مقبوض
                       },
                       children: [
                         pw.TableRow(
@@ -1930,21 +1838,20 @@ class _BoxScreenState extends State<BoxScreen> {
                             _buildPdfHeaderCell('الحساب', headerTextColor),
                             _buildPdfHeaderCell('مدفوع', headerTextColor),
                             _buildPdfHeaderCell('مقبوض', headerTextColor),
-                            _buildPdfHeaderCell('ت', headerTextColor),
                           ],
                         ),
                         ...rowControllers.asMap().entries.map((entry) {
                           final index = entry.key;
                           final controllers = entry.value;
-                          if (controllers[1].text.isEmpty &&
-                              controllers[2].text.isEmpty &&
-                              controllers[3].text.isEmpty) {
+                          if (controllers[0].text.isEmpty &&
+                              controllers[1].text.isEmpty &&
+                              controllers[2].text.isEmpty) {
                             return pw.TableRow(
-                                children: List.filled(5, pw.SizedBox()));
+                                children: List.filled(4, pw.SizedBox()));
                           }
                           final color =
                               index % 2 == 0 ? rowEvenColor : rowOddColor;
-                          String accountInfo = controllers[3].text;
+                          String accountInfo = controllers[2].text;
                           if (accountTypeValues[index].isNotEmpty) {
                             accountInfo =
                                 "(${accountTypeValues[index]}) " + accountInfo;
@@ -1952,9 +1859,8 @@ class _BoxScreenState extends State<BoxScreen> {
                           return pw.TableRow(
                             decoration: pw.BoxDecoration(color: color),
                             children: [
-                              _buildPdfCell(controllers[4].text),
+                              _buildPdfCell(controllers[3].text),
                               _buildPdfCell(accountInfo),
-                              _buildPdfCell(controllers[2].text),
                               _buildPdfCell(controllers[1].text),
                               _buildPdfCell(controllers[0].text),
                             ],
@@ -1970,7 +1876,6 @@ class _BoxScreenState extends State<BoxScreen> {
                                 isBold: true),
                             _buildPdfCell(totalReceivedController.text,
                                 isBold: true),
-                            _buildPdfCell(''),
                           ],
                         ),
                       ],
@@ -1984,7 +1889,6 @@ class _BoxScreenState extends State<BoxScreen> {
       );
 
       final output = await getTemporaryDirectory();
-      // *** التعديل الهام هنا: استبدال / بـ - لضمان صحة اسم الملف ***
       final safeDate = widget.selectedDate.replaceAll('/', '-');
       final file = File("${output.path}/يومية_صندوق_$safeDate.pdf");
 
@@ -2008,7 +1912,7 @@ class _BoxScreenState extends State<BoxScreen> {
       child: pw.Text(text,
           textAlign: pw.TextAlign.center,
           style: pw.TextStyle(
-              color: color, fontSize: 10, fontWeight: pw.FontWeight.bold)),
+              color: color, fontSize: 16, fontWeight: pw.FontWeight.bold)),
     );
   }
 
@@ -2019,7 +1923,7 @@ class _BoxScreenState extends State<BoxScreen> {
       child: pw.Text(text,
           textAlign: pw.TextAlign.center,
           style: pw.TextStyle(
-              fontSize: 10,
+              fontSize: 16,
               fontWeight: isBold ? pw.FontWeight.bold : pw.FontWeight.normal)),
     );
   }
@@ -2036,9 +1940,9 @@ class _BoxScreenState extends State<BoxScreen> {
     if (!mounted) return;
 
     setState(() {
-      // إزالة أي صفوف سابقة مستوردة من مبيعات/مشتريات (لتجنب التكرار عند إعادة التحميل)
       for (int i = rowControllers.length - 1; i >= 0; i--) {
-        if (rowSourceTypes[i] == 'sales' || rowSourceTypes[i] == 'purchase') {
+        if (i < rowSourceTypes.length &&
+            (rowSourceTypes[i] == 'sales' || rowSourceTypes[i] == 'purchase')) {
           for (var c in rowControllers[i]) c.dispose();
           for (var n in rowFocusNodes[i]) n.dispose();
           rowControllers.removeAt(i);
@@ -2049,20 +1953,23 @@ class _BoxScreenState extends State<BoxScreen> {
         }
       }
 
-      // إضافة المبيعات النقدية
       if (salesDoc != null) {
         for (var sale in salesDoc.sales) {
           if (sale.cashOrDebt == 'نقدي') {
-            final amount = sale.total;
+            final String accountName =
+                (sale.customerName != null && sale.customerName!.isNotEmpty)
+                    ? sale.customerName!
+                    : (sale.sellerName.isNotEmpty
+                        ? sale.sellerName
+                        : 'مبيعات نقدية');
+
             final controllers = [
-              TextEditingController(text: ''), // رقم تسلسلي (سيُحسب لاحقاً)
-              TextEditingController(text: amount), // مقبوض
+              TextEditingController(text: sale.total), // مقبوض
               TextEditingController(text: ''), // مدفوع
-              TextEditingController(
-                  text: '${sale.customerName} (مبيعات)'), // الحساب
+              TextEditingController(text: accountName), // الحساب
               TextEditingController(text: 'مبيعات نقدية'), // ملاحظات
             ];
-            final focusNodes = List.generate(5, (_) => FocusNode());
+            final focusNodes = List.generate(4, (_) => FocusNode());
             rowControllers.add(controllers);
             rowFocusNodes.add(focusNodes);
             accountTypeValues.add('زبون');
@@ -2072,20 +1979,20 @@ class _BoxScreenState extends State<BoxScreen> {
         }
       }
 
-      // إضافة المشتريات النقدية
       if (purchaseDoc != null) {
         for (var purchase in purchaseDoc.purchases) {
           if (purchase.cashOrDebt == 'نقدي') {
-            final amount = purchase.total;
+            final String accountName = purchase.sellerName.isNotEmpty
+                ? purchase.sellerName
+                : 'مشتريات نقدية';
+
             final controllers = [
-              TextEditingController(text: ''), // رقم تسلسلي
               TextEditingController(text: ''), // مقبوض
-              TextEditingController(text: amount), // مدفوع
-              TextEditingController(
-                  text: '${purchase.sellerName} (مشتريات)'), // الحساب
+              TextEditingController(text: purchase.total), // مدفوع
+              TextEditingController(text: accountName), // الحساب
               TextEditingController(text: 'مشتريات نقدية'), // ملاحظات
             ];
-            final focusNodes = List.generate(5, (_) => FocusNode());
+            final focusNodes = List.generate(4, (_) => FocusNode());
             rowControllers.add(controllers);
             rowFocusNodes.add(focusNodes);
             accountTypeValues.add('مورد');
@@ -2095,12 +2002,6 @@ class _BoxScreenState extends State<BoxScreen> {
         }
       }
 
-      // إعادة ترقيم الصفوف كلها
-      for (int i = 0; i < rowControllers.length; i++) {
-        rowControllers[i][0].text = (i + 1).toString();
-      }
-
-      // إعادة حساب المجاميع
       _calculateAllTotals();
     });
   }

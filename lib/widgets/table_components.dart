@@ -95,23 +95,23 @@ Widget buildTableHeaderCell(String text) {
   return Container(
     padding: const EdgeInsets.all(2),
     constraints: const BoxConstraints(minHeight: 30),
-    child: Center(
-      child: Text(
-        text,
-        style: const TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.bold,
-        ),
-        textAlign: TextAlign.center,
-        maxLines: 2,
+    alignment: Alignment.center, // ✅ توسيط المحتوى
+    child: Text(
+      text,
+      style: const TextStyle(
+        fontSize: 18,
+        fontWeight: FontWeight.bold,
       ),
+      textAlign: TextAlign.center,
+      maxLines: 2,
     ),
   );
 }
 
-// خلية المجموع
+// خلية المجموع - نسخة موحدة (للأرقام فقط)
 Widget buildTotalCell(TextEditingController controller) {
   return Container(
+    alignment: Alignment.center,
     padding: const EdgeInsets.all(1),
     constraints: const BoxConstraints(minHeight: 25),
     decoration: BoxDecoration(
@@ -122,17 +122,38 @@ Widget buildTotalCell(TextEditingController controller) {
       decoration: const InputDecoration(
         contentPadding: EdgeInsets.symmetric(horizontal: 2, vertical: 1),
         border: InputBorder.none,
-        hintStyle: TextStyle(fontSize: 13),
       ),
-      style: TextStyle(
-        fontSize: 13,
+      style: const TextStyle(
+        fontSize: 17,
         fontWeight: FontWeight.bold,
-        color: Colors.red[700],
+        color: Colors.red,
       ),
+      textAlign: TextAlign.center, // ✅ توسيط النص
       maxLines: 1,
       keyboardType: TextInputType.number,
       enabled: false,
       readOnly: true,
+    ),
+  );
+}
+
+// خلية المجموع - نسخة موحدة (للنصوص مثل "المجموع")
+Widget buildTotalLabelCell(String label) {
+  return Container(
+    alignment: Alignment.center,
+    padding: const EdgeInsets.all(1),
+    constraints: const BoxConstraints(minHeight: 25),
+    decoration: BoxDecoration(
+      color: Colors.yellow[100],
+    ),
+    child: Text(
+      label,
+      style: const TextStyle(
+        fontSize: 17,
+        fontWeight: FontWeight.bold,
+        color: Colors.red,
+      ),
+      textAlign: TextAlign.center,
     ),
   );
 }
@@ -142,19 +163,21 @@ Widget buildTotalValueCell(TextEditingController controller) {
   return Container(
     padding: const EdgeInsets.all(1),
     constraints: const BoxConstraints(minHeight: 25),
+    alignment: Alignment.center, // ✅ توسيط المحتوى
     child: TextField(
       controller: controller,
       decoration: const InputDecoration(
         contentPadding: EdgeInsets.symmetric(horizontal: 2, vertical: 1),
         border: InputBorder.none,
         hintText: '0.00',
-        hintStyle: TextStyle(fontSize: 13, color: Colors.grey),
+        hintStyle: TextStyle(fontSize: 17, color: Colors.grey),
       ),
       style: const TextStyle(
-        fontSize: 13,
+        fontSize: 17,
         fontWeight: FontWeight.bold,
         color: Colors.blue,
       ),
+      textAlign: TextAlign.center, // ✅ توسيط النص
       maxLines: 1,
       keyboardType: TextInputType.number,
       enabled: false,

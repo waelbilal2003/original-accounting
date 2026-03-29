@@ -758,15 +758,15 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
         TableRow(
           decoration: BoxDecoration(color: Colors.yellow[50]),
           children: [
-            _buildSummaryCell(''),
-            _buildSummaryCell(''),
-            _buildSummaryValueCell(totalCountController),
-            _buildSummaryCell(''),
-            _buildSummaryValueCell(totalBaseController),
-            _buildSummaryValueCell(totalNetController),
-            _buildSummaryCell(''),
-            _buildSummaryValueCell(totalGrandController),
-            _buildSummaryCell(''),
+            _buildSummaryCell(''), // المادة
+            _buildSummaryCell(''), // المورد
+            TableComponents.buildTotalCell(totalCountController), // العدد
+            _buildSummaryCell(''), // العبوة
+            TableComponents.buildTotalCell(totalBaseController), // القائم
+            TableComponents.buildTotalCell(totalNetController), // الصافي
+            _buildSummaryCell(''), // السعر
+            TableComponents.buildTotalCell(totalGrandController), // الإجمالي
+            TableComponents.buildTotalLabelCell(''), // نقدي او دين
           ],
         ),
       );
@@ -821,21 +821,7 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
       color: Colors.yellow[50],
       alignment: Alignment.center,
       child: Text(text,
-          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-    );
-  }
-
-  Widget _buildSummaryValueCell(TextEditingController controller) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
-      constraints: const BoxConstraints(minHeight: 25),
-      color: Colors.yellow[50],
-      alignment: Alignment.center,
-      child: Text(
-        controller.text,
-        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-        textAlign: TextAlign.center,
-      ),
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
     );
   }
 
@@ -1086,7 +1072,7 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
                     'المشتريات - ${widget.selectedDate}',
                     textAlign: TextAlign.center,
                     style: const TextStyle(
-                        fontWeight: FontWeight.bold, fontSize: 14, height: 1.5),
+                        fontWeight: FontWeight.bold, fontSize: 16, height: 1.5),
                   ),
                   Directionality(
                     textDirection: TextDirection.rtl,
@@ -1096,11 +1082,11 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
                       children: [
                         const Text('الإجمالي الكلي: ',
                             style:
-                                TextStyle(fontSize: 11, color: Colors.white70)),
+                                TextStyle(fontSize: 16, color: Colors.white70)),
                         Text(
                           _grandTotal.toStringAsFixed(2),
                           style: const TextStyle(
-                            fontSize: 13,
+                            fontSize: 16,
                             fontWeight: FontWeight.bold,
                             color: Colors.lightBlueAccent,
                           ),
@@ -1568,7 +1554,7 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
                         child: pw.Text(
                             'تاريخ ${widget.selectedDate} - البائع ${widget.sellerName}',
                             style: const pw.TextStyle(
-                                fontSize: 12, color: PdfColors.grey700))),
+                                fontSize: 16, color: PdfColors.grey700))),
                     pw.SizedBox(height: 10),
                     pw.Table(
                       border:
@@ -1676,7 +1662,7 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
       child: pw.Text(text,
           textAlign: pw.TextAlign.center,
           style: pw.TextStyle(
-              color: color, fontSize: 8, fontWeight: pw.FontWeight.bold)),
+              color: color, fontSize: 16, fontWeight: pw.FontWeight.bold)),
     );
   }
 
@@ -1687,7 +1673,7 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
       child: pw.Text(text,
           textAlign: pw.TextAlign.center,
           style: pw.TextStyle(
-              fontSize: 8,
+              fontSize: 16,
               fontWeight: isBold ? pw.FontWeight.bold : pw.FontWeight.normal)),
     );
   }

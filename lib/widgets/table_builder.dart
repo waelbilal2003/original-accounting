@@ -14,10 +14,10 @@ Widget buildTableCell({
   required Function(String, int, int) onFieldChanged,
   List<TextInputFormatter>? inputFormatters,
   bool isSField = false,
-  double fontSize = 13,
-  TextAlign textAlign = TextAlign.right,
+  double fontSize = 16, // تغيير من 13 إلى 16
+  TextAlign textAlign = TextAlign.center, // تغيير من TextAlign.right إلى center
   TextDirection textDirection = TextDirection.rtl,
-  bool enabled = true, // <-- المنطق الجديد الذي يتحكم بالصلاحيات
+  bool enabled = true,
 }) {
   return Container(
     padding: const EdgeInsets.all(1),
@@ -25,22 +25,16 @@ Widget buildTableCell({
     child: TextField(
       controller: controller,
       focusNode: focusNode,
-      // *** الدمج الرئيسي هنا ***
-      // الخاصية 'enabled' الآن تتحكم بشكل كامل في إمكانية التفاعل
       enabled: enabled,
       readOnly: isSerialField,
       decoration: const InputDecoration(
         contentPadding: EdgeInsets.symmetric(horizontal: 2, vertical: 1),
         border: InputBorder.none,
-        // لا نحتاج لـ hintText الآن لأن حجم الحقل ثابت
       ),
-      // *** تطبيق الألوان مع مراعاة حالة الحقل ***
       style: TextStyle(
         fontSize: fontSize,
-        // إذا كان الحقل معطلاً، يظهر بلون رمادي. وإلا، يظهر باللون الأسود.
         color: enabled ? Colors.black : Colors.grey[700],
       ),
-      // maxLines: 1, // TextField يتعامل مع هذا بشكل جيد افتراضياً
       keyboardType: isSField
           ? TextInputType.number
           : (isNumericField
@@ -51,7 +45,6 @@ Widget buildTableCell({
       textDirection: textDirection,
       inputFormatters: inputFormatters,
       onTap: () {
-        // نسمح بالتمرير حتى لو كان الحقل للقراءة فقط (مثل حقل المسلسل)
         scrollToField(rowIndex, colIndex);
       },
       onSubmitted: (value) => onFieldSubmitted(value, rowIndex, colIndex),
@@ -75,7 +68,7 @@ Widget buildCashOrDebtCell({
   required ValueChanged<String> onCustomerNameChanged,
   required Function(String, int, int) onCustomerSubmitted,
   bool isSalesScreen = false,
-  bool enabled = true, // <-- إضافة خاصية الصلاحيات هنا أيضاً
+  bool enabled = true,
 }) {
   // إذا كانت الخلية غير مفعلة، نعرض نصاً بسيطاً للقراءة فقط
   if (!enabled) {
@@ -91,9 +84,9 @@ Widget buildCashOrDebtCell({
       alignment: Alignment.center,
       child: Text(
         displayText,
-        style: TextStyle(
-          fontSize: 11,
-          color: Colors.grey[700],
+        style: const TextStyle(
+          fontSize: 16,
+          color: Colors.grey,
         ),
         textAlign: TextAlign.center,
         overflow: TextOverflow.ellipsis,
@@ -109,22 +102,22 @@ Widget buildCashOrDebtCell({
       child: TextField(
         controller: customerController,
         focusNode: focusNode,
-        decoration: const InputDecoration(
-          contentPadding: EdgeInsets.symmetric(horizontal: 2, vertical: 1),
-          border: OutlineInputBorder(
+        decoration: InputDecoration(
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
+          border: const OutlineInputBorder(
             borderSide: BorderSide(color: Colors.red, width: 0.5),
           ),
           hintText: 'اسم الزبون',
-          hintStyle: TextStyle(fontSize: 9, color: Colors.grey),
+          hintStyle: const TextStyle(fontSize: 16, color: Colors.grey),
         ),
-        style: TextStyle(
-          fontSize: 11,
-          color: Colors.red[700],
+        style: const TextStyle(
+          fontSize: 16,
+          color: Colors.red,
           fontWeight: FontWeight.bold,
         ),
-        maxLines: 2,
+        textAlign: TextAlign.center,
         textDirection: TextDirection.rtl,
-        textAlign: TextAlign.right,
         textInputAction: TextInputAction.next,
         onTap: () {
           scrollToField(rowIndex, colIndex);
@@ -139,7 +132,6 @@ Widget buildCashOrDebtCell({
   }
 
   // بقية الحالات (نقدي، دين للمشتريات، فارغ) تستخدم InkWell
-  // لأنها تفتح نافذة منبثقة ولا تتطلب إدخال نص مباشر
   return Container(
     padding: const EdgeInsets.all(1),
     constraints: const BoxConstraints(minHeight: 25),
@@ -164,10 +156,15 @@ Widget _buildCashOrDebtDisplay(String cashOrDebtValue, bool isSalesScreen) {
         ),
         padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
         child: const Center(
-          child: Text('دين',
-              style: TextStyle(
-                  fontSize: 11, color: Colors.red, fontWeight: FontWeight.bold),
-              textAlign: TextAlign.center),
+          child: Text(
+            'دين',
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.red,
+              fontWeight: FontWeight.bold,
+            ),
+            textAlign: TextAlign.center,
+          ),
         ),
       );
     case 'نقدي':
@@ -177,13 +174,16 @@ Widget _buildCashOrDebtDisplay(String cashOrDebtValue, bool isSalesScreen) {
           borderRadius: BorderRadius.circular(2),
         ),
         padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
-        child: Center(
-          child: Text('نقدي',
-              style: TextStyle(
-                  fontSize: isSalesScreen ? 9 : 11,
-                  color: Colors.green,
-                  fontWeight: FontWeight.bold),
-              textAlign: TextAlign.center),
+        child: const Center(
+          child: Text(
+            'نقدي',
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.green,
+              fontWeight: FontWeight.bold,
+            ),
+            textAlign: TextAlign.center,
+          ),
         ),
       );
     default: // فارغ
@@ -196,16 +196,16 @@ Widget _buildCashOrDebtDisplay(String cashOrDebtValue, bool isSalesScreen) {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Expanded(
-              child: Text('اختر',
-                  style: TextStyle(
-                      fontSize: isSalesScreen ? 9 : 11, color: Colors.grey),
-                  textAlign: TextAlign.center,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis),
+            const Text(
+              'اختر',
+              style: TextStyle(fontSize: 16, color: Colors.grey),
+              textAlign: TextAlign.center,
             ),
-            Icon(Icons.arrow_drop_down,
-                size: isSalesScreen ? 12 : 16, color: Colors.grey[600]),
+            Icon(
+              Icons.arrow_drop_down,
+              size: 20,
+              color: Colors.grey[600],
+            ),
           ],
         ),
       );

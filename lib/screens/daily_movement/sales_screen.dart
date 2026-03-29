@@ -1039,7 +1039,7 @@ class _SalesScreenState extends State<SalesScreen> {
                     'المبيعات - ${widget.selectedDate}',
                     textAlign: TextAlign.center,
                     style: const TextStyle(
-                        fontWeight: FontWeight.bold, fontSize: 14, height: 1.5),
+                        fontWeight: FontWeight.bold, fontSize: 16, height: 1.5),
                   ),
                   Directionality(
                     textDirection: TextDirection.rtl,
@@ -1049,11 +1049,11 @@ class _SalesScreenState extends State<SalesScreen> {
                       children: [
                         const Text('الإجمالي الكلي: ',
                             style:
-                                TextStyle(fontSize: 11, color: Colors.white70)),
+                                TextStyle(fontSize: 16, color: Colors.white70)),
                         Text(
                           _grandTotal.toStringAsFixed(2),
                           style: const TextStyle(
-                            fontSize: 13,
+                            fontSize: 16,
                             fontWeight: FontWeight.bold,
                             color: Colors.lightGreenAccent,
                           ),
@@ -1750,7 +1750,7 @@ class _SalesScreenState extends State<SalesScreen> {
       child: pw.Text(text,
           textAlign: pw.TextAlign.center,
           style: pw.TextStyle(
-              color: color, fontSize: 8, fontWeight: pw.FontWeight.bold)),
+              color: color, fontSize: 16, fontWeight: pw.FontWeight.bold)),
     );
   }
 
@@ -1761,7 +1761,7 @@ class _SalesScreenState extends State<SalesScreen> {
       child: pw.Text(text,
           textAlign: pw.TextAlign.center,
           style: pw.TextStyle(
-              fontSize: 8,
+              fontSize: 16,
               fontWeight: isBold ? pw.FontWeight.bold : pw.FontWeight.normal)),
     );
   }
