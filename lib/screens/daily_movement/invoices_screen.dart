@@ -888,15 +888,14 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
     if (selectedDate == null) return;
 
     DateTime rangeStart;
-    DateTime rangeEnd = selectedDate;
+    DateTime rangeEnd;
 
     if (_filterFrom != null || _filterTo != null) {
-      rangeStart = _filterFrom ?? DateTime(selectedDate.year, 1, 1);
-      if (_filterTo != null && _filterTo!.isBefore(rangeEnd)) {
-        rangeEnd = _filterTo!;
-      }
+      rangeStart = _filterFrom ?? DateTime(2000, 1, 1);
+      rangeEnd = _filterTo ?? DateTime.now();
     } else {
       rangeStart = DateTime(2000, 1, 1);
+      rangeEnd = DateTime.now();
     }
 
     final List<InvoiceItem> items = [];
