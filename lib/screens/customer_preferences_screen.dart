@@ -48,22 +48,31 @@ class _CustomerPreferencesScreenState extends State<CustomerPreferencesScreen> {
 
   Future<void> _loadDetails() async {
     final selectedDate = _parseDate(widget.selectedDate);
-    // نحمّل من بداية السنة لأن الفلتر سيتولى التحديد
     final firstDayOfYear = DateTime(selectedDate.year, 1, 1);
 
+    // تحديد نطاق التحميل الفعلي (مع مراعاة الفلتر)
+    DateTime rangeStart = firstDayOfYear;
+    DateTime rangeEnd = selectedDate;
+
+    if (_filterFrom != null && _filterFrom!.isAfter(rangeStart)) {
+      rangeStart = _filterFrom!;
+    }
+    if (_filterTo != null && _filterTo!.isBefore(rangeEnd)) {
+      rangeEnd = _filterTo!;
+    }
+
     final List<Map<String, String>> transactions = <Map<String, String>>[];
-    for (int i = 0;
-        !firstDayOfYear.add(Duration(days: i)).isAfter(selectedDate);
-        i++) {
-      final currentDate = firstDayOfYear.add(Duration(days: i));
+
+    // التكرار من rangeStart إلى rangeEnd شامل
+    int daysDiff = rangeEnd.difference(rangeStart).inDays;
+    for (int i = 0; i <= daysDiff; i++) {
+      final currentDate = rangeStart.add(Duration(days: i));
       final dateString =
           '${currentDate.year}/${currentDate.month}/${currentDate.day}';
-
       // ① مسحوبات من يومية المبيعات
       final doc = await _salesService.loadDocumentForDate(dateString);
       if (doc != null) {
         for (var t in doc.sales) {
-          // مبيعات دين مرتبطة بهذا الزبون
           if (t.cashOrDebt == 'دين' &&
               t.customerName == widget.customer.name &&
               t.total.isNotEmpty) {
@@ -77,13 +86,11 @@ class _CustomerPreferencesScreenState extends State<CustomerPreferencesScreen> {
         }
       }
 
-      // ② مدفوع من يومية الصندوق (نوع الحساب = زبون واسمه مطابق)
       final boxDoc = await _boxService.loadBoxDocumentForDate(dateString);
       if (boxDoc != null) {
         for (var t in boxDoc.transactions) {
           if (t.accountType == 'زبون' &&
               t.accountName == widget.customer.name) {
-            // المدفوع
             if (t.paid.isNotEmpty &&
                 t.paid != '0' &&
                 t.paid != '0.0' &&
@@ -95,7 +102,6 @@ class _CustomerPreferencesScreenState extends State<CustomerPreferencesScreen> {
                 'source': 'box_paid',
               });
             }
-            // المقبوض
             if (t.received.isNotEmpty &&
                 t.received != '0' &&
                 t.received != '0.0' &&
@@ -112,7 +118,6 @@ class _CustomerPreferencesScreenState extends State<CustomerPreferencesScreen> {
       }
     }
 
-    // ترتيب بالتاريخ
     transactions.sort((a, b) {
       final da = _parseDateFromString(a['date'] ?? '');
       final db = _parseDateFromString(b['date'] ?? '');
@@ -121,12 +126,10 @@ class _CustomerPreferencesScreenState extends State<CustomerPreferencesScreen> {
     });
 
     if (!mounted) return;
-
     setState(() {
       _allTransactions = transactions;
       _isLoading = false;
     });
-
     _applyFilter();
   }
 
@@ -335,23 +338,21 @@ class _CustomerPreferencesScreenState extends State<CustomerPreferencesScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // إلى تاريخ (على اليسار)
-                      Expanded(
-                        child: datePicker(
-                          sectionLabel: 'إلى تاريخ',
-                          date: tempTo,
-                          color: Colors.teal[800]!,
-                          onChanged: (d) => setDialogState(() => tempTo = d),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      // من تاريخ (على اليمين)
                       Expanded(
                         child: datePicker(
                           sectionLabel: 'من تاريخ',
                           date: tempFrom,
                           color: Colors.teal[700]!,
                           onChanged: (d) => setDialogState(() => tempFrom = d),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: datePicker(
+                          sectionLabel: 'إلى تاريخ',
+                          date: tempTo,
+                          color: Colors.teal[800]!,
+                          onChanged: (d) => setDialogState(() => tempTo = d),
                         ),
                       ),
                     ],

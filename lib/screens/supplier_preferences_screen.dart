@@ -48,15 +48,23 @@ class _SupplierPreferencesScreenState extends State<SupplierPreferencesScreen> {
 
   Future<void> _loadDetails() async {
     final selectedDate = _parseDate(widget.selectedDate);
-    // نحمّل من بداية السنة لأن الفلتر سيتولى التحديد
     final firstDayOfYear = DateTime(selectedDate.year, 1, 1);
+
+    DateTime rangeStart = firstDayOfYear;
+    DateTime rangeEnd = selectedDate;
+
+    if (_filterFrom != null && _filterFrom!.isAfter(rangeStart)) {
+      rangeStart = _filterFrom!;
+    }
+    if (_filterTo != null && _filterTo!.isBefore(rangeEnd)) {
+      rangeEnd = _filterTo!;
+    }
 
     final List<Map<String, String>> transactions = <Map<String, String>>[];
 
-    for (int i = 0;
-        !firstDayOfYear.add(Duration(days: i)).isAfter(selectedDate);
-        i++) {
-      final currentDate = firstDayOfYear.add(Duration(days: i));
+    int daysDiff = rangeEnd.difference(rangeStart).inDays;
+    for (int i = 0; i <= daysDiff; i++) {
+      final currentDate = rangeStart.add(Duration(days: i));
       final dateString =
           '${currentDate.year}/${currentDate.month}/${currentDate.day}';
 
@@ -342,23 +350,21 @@ class _SupplierPreferencesScreenState extends State<SupplierPreferencesScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // إلى تاريخ (على اليسار)
-                      Expanded(
-                        child: datePicker(
-                          sectionLabel: 'إلى تاريخ',
-                          date: tempTo,
-                          color: Colors.brown[800]!,
-                          onChanged: (d) => setDialogState(() => tempTo = d),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      // من تاريخ (على اليمين)
                       Expanded(
                         child: datePicker(
                           sectionLabel: 'من تاريخ',
                           date: tempFrom,
                           color: Colors.brown[700]!,
                           onChanged: (d) => setDialogState(() => tempFrom = d),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: datePicker(
+                          sectionLabel: 'إلى تاريخ',
+                          date: tempTo,
+                          color: Colors.brown[800]!,
+                          onChanged: (d) => setDialogState(() => tempTo = d),
                         ),
                       ),
                     ],

@@ -264,23 +264,21 @@ class _SupplierPurchasesScreenState extends State<SupplierPurchasesScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // إلى تاريخ (على اليسار)
-                      Expanded(
-                        child: datePicker(
-                          sectionLabel: 'إلى تاريخ',
-                          date: tempTo,
-                          color: Colors.red[800]!,
-                          onChanged: (d) => setDialogState(() => tempTo = d),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      // من تاريخ (على اليمين)
                       Expanded(
                         child: datePicker(
                           sectionLabel: 'من تاريخ',
                           date: tempFrom,
                           color: Colors.red[700]!,
                           onChanged: (d) => setDialogState(() => tempFrom = d),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: datePicker(
+                          sectionLabel: 'إلى تاريخ',
+                          date: tempTo,
+                          color: Colors.red[800]!,
+                          onChanged: (d) => setDialogState(() => tempTo = d),
                         ),
                       ),
                     ],
@@ -874,18 +872,20 @@ class _SupplierPurchasesScreenState extends State<SupplierPurchasesScreen> {
     final selectedDate = _parseDateFromString(widget.selectedDate);
     if (selectedDate == null) return;
 
-    final DateTime rangeEnd = selectedDate;
-    final DateTime rangeStart = _filterFrom != null
-        ? (_filterFrom!.isAfter(rangeEnd) ? rangeEnd : _filterFrom!)
-        : DateTime(selectedDate.year, 1, 1);
-    final DateTime effectiveEnd =
-        _filterTo != null && !_filterTo!.isAfter(rangeEnd)
-            ? _filterTo!
-            : rangeEnd;
+    DateTime rangeStart = DateTime(selectedDate.year, 1, 1);
+    DateTime rangeEnd = selectedDate;
+
+    if (_filterFrom != null && _filterFrom!.isAfter(rangeStart)) {
+      rangeStart = _filterFrom!;
+    }
+    if (_filterTo != null && _filterTo!.isBefore(rangeEnd)) {
+      rangeEnd = _filterTo!;
+    }
 
     final List<Purchase> items = [];
 
-    for (int i = 0; i <= effectiveEnd.difference(rangeStart).inDays; i++) {
+    int daysDiff = rangeEnd.difference(rangeStart).inDays;
+    for (int i = 0; i <= daysDiff; i++) {
       final currentDate = rangeStart.add(Duration(days: i));
       final dateString =
           '${currentDate.year}/${currentDate.month}/${currentDate.day}';
