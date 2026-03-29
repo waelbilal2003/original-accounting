@@ -422,8 +422,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   // دالة عرض نافذة تغيير اسم المتجر
+// دالة عرض نافذة تغيير اسم المتجر
   void _showChangeStoreNameDialog() {
-    final storeNameCtrl = TextEditingController(text: widget.storeName);
+    final storeNameCtrl =
+        TextEditingController(); // تغيير: إزالة النص الافتراضي
     final storeNameFocus = FocusNode();
     String? dialogError;
 
@@ -484,6 +486,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         onSubmitted: (_) => doChange(),
                         decoration: InputDecoration(
                           labelText: 'اسم المتجر الجديد',
+                          hintText: 'أدخل اسم المتجر الجديد', // إضافة hint text
                           prefixIcon: const Icon(Icons.store),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),

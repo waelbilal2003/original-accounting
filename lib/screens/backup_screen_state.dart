@@ -39,13 +39,13 @@ class _BackupScreenState extends State<BackupScreen> {
   static const _folders = [
     'BoxJournals',
     'SalesJournals',
-    'PurchasesJournals',
+    'PurchaseJournals',
     'PaymentJournals',
     'AppData',
-  ];
-  static const _docFiles = [
-    'customer_index.json',
-    'supplier_index.json',
+    'SupplierIndex',
+    'CustomerIndex',
+    'MaterialIndex',
+    'PackagingIndex',
   ];
 
   bool _isBusy = false;
@@ -105,15 +105,6 @@ class _BackupScreenState extends State<BackupScreen> {
             encoder.addFile(entity, entity.path.replaceFirst('$appPath/', ''));
             count++;
           }
-        }
-      }
-
-      final docsDir = await getApplicationDocumentsDirectory();
-      for (final fileName in _docFiles) {
-        final file = File('${docsDir.path}/$fileName');
-        if (await file.exists()) {
-          encoder.addFile(file, 'AppDocs/$fileName');
-          count++;
         }
       }
 
@@ -177,7 +168,6 @@ class _BackupScreenState extends State<BackupScreen> {
     try {
       final appPath = await _getAppDataPath();
       if (appPath == null) throw Exception('تعذّر الوصول إلى مجلد البيانات');
-      final docsDir = await getApplicationDocumentsDirectory();
 
       final bytes = File(zipPath).readAsBytesSync();
       final archive = ZipDecoder().decodeBytes(bytes);
@@ -188,12 +178,7 @@ class _BackupScreenState extends State<BackupScreen> {
         final data = file.content as List<int>;
         final String targetPath;
 
-        if (file.name.startsWith('AppDocs/')) {
-          targetPath =
-              '${docsDir.path}/${file.name.replaceFirst('AppDocs/', '')}';
-        } else {
-          targetPath = '$appPath/${file.name}';
-        }
+        targetPath = '$appPath/${file.name}';
 
         final out = File(targetPath);
         await out.parent.create(recursive: true);

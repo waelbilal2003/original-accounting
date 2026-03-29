@@ -15,6 +15,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:share_plus/share_plus.dart';
+import '../../services/sales_storage_service.dart';
+import '../../services/purchase_storage_service.dart';
 
 class BoxScreen extends StatefulWidget {
   final String sellerName;
@@ -101,7 +103,8 @@ class _BoxScreenState extends State<BoxScreen> {
   String _lastAccountName = '';
   double _grandTotalReceived = 0.0;
   double _grandTotalPaid = 0.0;
-
+// قائمة لتخزين نوع الصف: 'box' أو 'sales' أو 'purchase' (للتمييز عن السجلات المستوردة)
+  List<String> rowSourceTypes = [];
   @override
   void initState() {
     super.initState();
@@ -219,12 +222,13 @@ class _BoxScreenState extends State<BoxScreen> {
         await _storageService.loadBoxDocumentForDate(widget.selectedDate);
 
     if (document != null && document.transactions.isNotEmpty) {
-      // تحميل اليومية الموجودة
       _loadJournal(document);
     } else {
-      // إنشاء يومية جديدة
       _createNewJournal();
     }
+
+    // بعد التحميل أو الإنشاء، نجلب السجلات النقدية من المبيعات والمشتريات
+    await _loadCashTransactionsFromOtherJournals();
   }
 
   void _resetTotalValues() {
@@ -238,6 +242,7 @@ class _BoxScreenState extends State<BoxScreen> {
       rowFocusNodes.clear();
       accountTypeValues.clear();
       sellerNames.clear();
+      rowSourceTypes.clear();
       _resetTotalValues();
       _hasUnsavedChanges = false;
       _addNewRow();
@@ -283,6 +288,7 @@ class _BoxScreenState extends State<BoxScreen> {
       rowControllers.add(newControllers);
       rowFocusNodes.add(newFocusNodes);
       accountTypeValues.add('');
+      rowSourceTypes.add('box');
     });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -421,6 +427,7 @@ class _BoxScreenState extends State<BoxScreen> {
       rowFocusNodes.clear();
       accountTypeValues.clear();
       sellerNames.clear();
+      rowSourceTypes.clear();
 
       // تحميل السجلات من الوثيقة
       for (int i = 0; i < document.transactions.length; i++) {
@@ -439,6 +446,7 @@ class _BoxScreenState extends State<BoxScreen> {
 
         // تخزين اسم البائع لهذا الصف
         sellerNames.add(transaction.sellerName);
+        rowSourceTypes.add('box');
 
         // التحقق إذا كان السجل مملوكاً للبائع الحالي
         final bool isOwnedByCurrentSeller =
@@ -515,19 +523,31 @@ class _BoxScreenState extends State<BoxScreen> {
 
     for (int i = 0; i < rowControllers.length; i++) {
       final bool isOwnedByCurrentSeller = sellerNames[i] == widget.sellerName;
+      final String sourceType =
+          (i < rowSourceTypes.length) ? rowSourceTypes[i] : 'box';
+      final bool isReadOnly = sourceType == 'sales' || sourceType == 'purchase';
+
+      // لون خلفية مختلف للصفوف المستوردة
+      Color? rowColor;
+      if (sourceType == 'sales') {
+        rowColor = Colors.green[50];
+      } else if (sourceType == 'purchase') {
+        rowColor = Colors.orange[50];
+      }
 
       contentRows.add(
         TableRow(
+          decoration: rowColor != null ? BoxDecoration(color: rowColor) : null,
           children: [
             _buildTableCell(rowControllers[i][0], rowFocusNodes[i][0], i, 0,
-                isOwnedByCurrentSeller),
+                !isReadOnly && isOwnedByCurrentSeller),
             _buildReceivedCell(rowControllers[i][1], rowFocusNodes[i][1], i, 1,
-                isOwnedByCurrentSeller),
+                !isReadOnly && isOwnedByCurrentSeller),
             _buildPaidCell(rowControllers[i][2], rowFocusNodes[i][2], i, 2,
-                isOwnedByCurrentSeller),
-            _buildAccountCell(i, 3, isOwnedByCurrentSeller),
+                !isReadOnly && isOwnedByCurrentSeller),
+            _buildAccountCell(i, 3, !isReadOnly && isOwnedByCurrentSeller),
             _buildNotesCell(rowControllers[i][4], rowFocusNodes[i][4], i, 4,
-                isOwnedByCurrentSeller),
+                !isReadOnly && isOwnedByCurrentSeller),
           ],
         ),
       );
@@ -1362,8 +1382,15 @@ class _BoxScreenState extends State<BoxScreen> {
     setState(() => _isSaving = true);
 
     // 1. تجميع السجلات الحالية من الواجهة
+    // مع تجاهل الصفوف المستوردة من المبيعات والمشتريات
     final List<BoxTransaction> allTransFromUI = [];
     for (int i = 0; i < rowControllers.length; i++) {
+      // تجاهل الصفوف المستوردة من المبيعات والمشتريات (للقراءة فقط)
+      if (i < rowSourceTypes.length &&
+          (rowSourceTypes[i] == 'sales' || rowSourceTypes[i] == 'purchase')) {
+        continue;
+      }
+
       final controllers = rowControllers[i];
       if (controllers[1].text.isNotEmpty ||
           controllers[2].text.isNotEmpty ||
@@ -1396,14 +1423,10 @@ class _BoxScreenState extends State<BoxScreen> {
           double oldPaid = double.tryParse(oldTrans.paid) ?? 0;
 
           if (oldTrans.accountType == 'زبون') {
-            // معادلة الزبون: الرصيد يتأثر بـ (المدفوع له - المقبوض منه)
-            // للإلغاء، نطرح هذا التأثير
             double effect = oldPaid - oldReceived;
             customerBalanceChanges[oldTrans.accountName] =
                 (customerBalanceChanges[oldTrans.accountName] ?? 0) - effect;
           } else if (oldTrans.accountType == 'مورد') {
-            // معادلة المورد: الرصيد يتأثر بـ (المقبوض منه - المدفوع له)
-            // للإلغاء، نطرح هذا التأثير
             double effect = oldReceived - oldPaid;
             supplierBalanceChanges[oldTrans.accountName] =
                 (supplierBalanceChanges[oldTrans.accountName] ?? 0) - effect;
@@ -1440,7 +1463,7 @@ class _BoxScreenState extends State<BoxScreen> {
     final documentToSave = BoxDocument(
       recordNumber: serialNumber,
       date: widget.selectedDate,
-      sellerName: "Multiple Sellers", // الاسم العام للملف
+      sellerName: "Multiple Sellers",
       storeName: widget.storeName,
       dayName: dayName,
       transactions: allTransFromUI,
@@ -1454,7 +1477,6 @@ class _BoxScreenState extends State<BoxScreen> {
     final success = await _storageService.saveBoxDocument(documentToSave);
 
     if (success) {
-      // تطبيق التغييرات الصافية على أرصدة الزبائن والموردين
       for (var entry in customerBalanceChanges.entries) {
         if (entry.value != 0) {
           await _customerIndexService.updateCustomerBalance(
@@ -2000,6 +2022,87 @@ class _BoxScreenState extends State<BoxScreen> {
               fontSize: 10,
               fontWeight: isBold ? pw.FontWeight.bold : pw.FontWeight.normal)),
     );
+  }
+
+  /// جلب السجلات النقدية من يوميات المبيعات والمشتريات وعرضها في الصندوق للقراءة فقط
+  Future<void> _loadCashTransactionsFromOtherJournals() async {
+    final salesService = SalesStorageService();
+    final purchaseService = PurchaseStorageService();
+
+    final salesDoc = await salesService.loadSalesDocument(widget.selectedDate);
+    final purchaseDoc =
+        await purchaseService.loadPurchaseDocument(widget.selectedDate);
+
+    if (!mounted) return;
+
+    setState(() {
+      // إزالة أي صفوف سابقة مستوردة من مبيعات/مشتريات (لتجنب التكرار عند إعادة التحميل)
+      for (int i = rowControllers.length - 1; i >= 0; i--) {
+        if (rowSourceTypes[i] == 'sales' || rowSourceTypes[i] == 'purchase') {
+          for (var c in rowControllers[i]) c.dispose();
+          for (var n in rowFocusNodes[i]) n.dispose();
+          rowControllers.removeAt(i);
+          rowFocusNodes.removeAt(i);
+          accountTypeValues.removeAt(i);
+          sellerNames.removeAt(i);
+          rowSourceTypes.removeAt(i);
+        }
+      }
+
+      // إضافة المبيعات النقدية
+      if (salesDoc != null) {
+        for (var sale in salesDoc.sales) {
+          if (sale.cashOrDebt == 'نقدي') {
+            final amount = sale.total;
+            final controllers = [
+              TextEditingController(text: ''), // رقم تسلسلي (سيُحسب لاحقاً)
+              TextEditingController(text: amount), // مقبوض
+              TextEditingController(text: ''), // مدفوع
+              TextEditingController(
+                  text: '${sale.customerName} (مبيعات)'), // الحساب
+              TextEditingController(text: 'مبيعات نقدية'), // ملاحظات
+            ];
+            final focusNodes = List.generate(5, (_) => FocusNode());
+            rowControllers.add(controllers);
+            rowFocusNodes.add(focusNodes);
+            accountTypeValues.add('زبون');
+            sellerNames.add(sale.sellerName);
+            rowSourceTypes.add('sales');
+          }
+        }
+      }
+
+      // إضافة المشتريات النقدية
+      if (purchaseDoc != null) {
+        for (var purchase in purchaseDoc.purchases) {
+          if (purchase.cashOrDebt == 'نقدي') {
+            final amount = purchase.total;
+            final controllers = [
+              TextEditingController(text: ''), // رقم تسلسلي
+              TextEditingController(text: ''), // مقبوض
+              TextEditingController(text: amount), // مدفوع
+              TextEditingController(
+                  text: '${purchase.sellerName} (مشتريات)'), // الحساب
+              TextEditingController(text: 'مشتريات نقدية'), // ملاحظات
+            ];
+            final focusNodes = List.generate(5, (_) => FocusNode());
+            rowControllers.add(controllers);
+            rowFocusNodes.add(focusNodes);
+            accountTypeValues.add('مورد');
+            sellerNames.add(purchase.sellerName);
+            rowSourceTypes.add('purchase');
+          }
+        }
+      }
+
+      // إعادة ترقيم الصفوف كلها
+      for (int i = 0; i < rowControllers.length; i++) {
+        rowControllers[i][0].text = (i + 1).toString();
+      }
+
+      // إعادة حساب المجاميع
+      _calculateAllTotals();
+    });
   }
 }
 
