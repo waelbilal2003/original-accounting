@@ -260,21 +260,31 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  datePicker(
-                    sectionLabel: 'من تاريخ',
-                    date: tempFrom,
-                    color: Colors.indigo[700]!,
-                    onChanged: (d) => setDialogState(() => tempFrom = d),
-                  ),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 8),
-                    child: Divider(height: 1),
-                  ),
-                  datePicker(
-                    sectionLabel: 'إلى تاريخ',
-                    date: tempTo,
-                    color: Colors.indigo[800]!,
-                    onChanged: (d) => setDialogState(() => tempTo = d),
+                  // صف أفقي يحتوي على "من تاريخ" (يمين) و "إلى تاريخ" (يسار)
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // إلى تاريخ (على اليسار)
+                      Expanded(
+                        child: datePicker(
+                          sectionLabel: 'إلى تاريخ',
+                          date: tempTo,
+                          color: Colors.indigo[800]!,
+                          onChanged: (d) => setDialogState(() => tempTo = d),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      // من تاريخ (على اليمين)
+                      Expanded(
+                        child: datePicker(
+                          sectionLabel: 'من تاريخ',
+                          date: tempFrom,
+                          color: Colors.indigo[700]!,
+                          onChanged: (d) => setDialogState(() => tempFrom = d),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),

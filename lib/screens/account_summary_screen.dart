@@ -42,18 +42,19 @@ class _AccountSummaryScreenState extends State<AccountSummaryScreen> {
     try {
       double sales = 0;
       double purchases = 0;
-      double boxReceived = 0, boxPaid = 0;
       double expensesTotalPaid = 0, expensesTotalReceived = 0;
 
+      // ── 1. سجلات الصندوق اليدوية + المصروفات ──
       final allBoxDates =
           await _boxStorageService.getAvailableDatesWithNumbers();
+      double boxManualReceived = 0, boxManualPaid = 0;
       for (var dateInfo in allBoxDates) {
         final doc =
             await _boxStorageService.loadBoxDocumentForDate(dateInfo['date']!);
         if (doc != null) {
-          boxReceived +=
+          boxManualReceived +=
               double.tryParse(doc.totals['totalReceived'] ?? '0') ?? 0;
-          boxPaid += double.tryParse(doc.totals['totalPaid'] ?? '0') ?? 0;
+          boxManualPaid += double.tryParse(doc.totals['totalPaid'] ?? '0') ?? 0;
           for (var trans in doc.transactions) {
             if (trans.accountType == 'مصروف') {
               expensesTotalPaid += double.tryParse(trans.paid) ?? 0;
@@ -64,30 +65,51 @@ class _AccountSummaryScreenState extends State<AccountSummaryScreen> {
       }
       final double expenses = expensesTotalPaid - expensesTotalReceived;
 
+      // ── 2. إجمالي المبيعات (نقدي + دين) ──
       final salesAllDates = await _salesStorageService.getAllAvailableDates();
+      double cashSalesTotal = 0;
       for (var date in salesAllDates) {
         final doc = await _salesStorageService.loadDocumentForDate(date);
         if (doc != null) {
           sales += double.tryParse(doc.totals['totalPayments'] ?? '0') ?? 0;
+          // جمع المبيعات النقدية لحساب الصندوق
+          for (var sale in doc.sales) {
+            if (sale.cashOrDebt == 'نقدي') {
+              cashSalesTotal += double.tryParse(sale.total) ?? 0;
+            }
+          }
         }
       }
 
+      // ── 3. إجمالي المشتريات (نقدي + دين) ──
       final purchasesAllDates =
           await _purchasesStorageService.getAllAvailableDates();
+      double cashPurchasesTotal = 0;
       for (var date in purchasesAllDates) {
         final doc = await _purchasesStorageService.loadDocumentForDate(date);
         if (doc != null) {
           purchases += double.tryParse(doc.totals['totalPayments'] ?? '0') ?? 0;
+          // جمع المشتريات النقدية لحساب الصندوق
+          for (var purchase in doc.purchases) {
+            if (purchase.cashOrDebt == 'نقدي') {
+              cashPurchasesTotal += double.tryParse(purchase.total) ?? 0;
+            }
+          }
         }
       }
 
-      final double boxBalance = boxReceived - boxPaid;
+      // ── 4. رصيد الصندوق الكلي = يدوي + مبيعات نقدية - مشتريات نقدية ──
+      final double fullBoxReceived = boxManualReceived + cashSalesTotal;
+      final double fullBoxPaid = boxManualPaid + cashPurchasesTotal;
+      final double boxBalance = fullBoxReceived - fullBoxPaid;
 
+      // ── 5. رصيد الافتتاح ──
       final settings = AppSettingsService();
       final openingBox = double.tryParse(
               await settings.getString('opening_box_balance') ?? '0') ??
           0;
 
+      // ── 6. أرصدة الزبائن والموردين ──
       final customers = await _customerIndexService.getAllCustomersWithData();
       final suppliers = await _supplierIndexService.getAllSuppliersWithData();
       final custBalance = customers.values.fold(0.0, (s, c) => s + c.balance);
@@ -97,12 +119,11 @@ class _AccountSummaryScreenState extends State<AccountSummaryScreen> {
         setState(() {
           _salesTotal = sales;
           _purchasesTotal = purchases;
-          _boxReceived = boxBalance;
+          _boxReceived = boxBalance; // رصيد الصندوق الكلي (يدوي + نقدي)
           _expensesTotal = expenses;
           _customersBalance = custBalance;
           _suppliersBalance = suppBalance;
           _openingBoxBalance = openingBox;
-
           _isLoading = false;
         });
       }

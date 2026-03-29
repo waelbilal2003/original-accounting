@@ -397,10 +397,8 @@ class _BoxScreenState extends State<BoxScreen> {
   }
 
   void _calculateAllTotals() {
-    // إلغاء أي حساب سابق منتظر
     _calculateTotalsDebouncer?.cancel();
 
-    // تأخير الحساب لتجنب التكرار المتعدد
     _calculateTotalsDebouncer = Timer(const Duration(milliseconds: 50), () {
       if (!mounted || _isCalculating) return;
 
@@ -411,8 +409,9 @@ class _BoxScreenState extends State<BoxScreen> {
 
       for (var controllers in rowControllers) {
         try {
-          totalReceived += double.tryParse(controllers[1].text) ?? 0;
-          totalPaid += double.tryParse(controllers[2].text) ?? 0;
+          totalReceived +=
+              double.tryParse(controllers[0].text) ?? 0; // [0] مقبوض
+          totalPaid += double.tryParse(controllers[1].text) ?? 0; // [1] مدفوع
         } catch (e) {}
       }
 
@@ -601,16 +600,16 @@ class _BoxScreenState extends State<BoxScreen> {
         focusNode: focusNode,
         textAlign: TextAlign.center,
         keyboardType: TextInputType.number,
+        // يُعطَّل فقط إذا كان حقل المدفوع [1] ممتلئاً
         enabled:
-            isOwnedByCurrentSeller && rowControllers[rowIndex][2].text.isEmpty,
-        style: TextStyle(
+            isOwnedByCurrentSeller && rowControllers[rowIndex][1].text.isEmpty,
+        style: const TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.w600,
           color: Colors.black,
         ),
-        decoration: InputDecoration(
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
+        decoration: const InputDecoration(
+          contentPadding: EdgeInsets.symmetric(horizontal: 2, vertical: 1),
           border: InputBorder.none,
           hintText: '0.00',
         ),
@@ -622,14 +621,14 @@ class _BoxScreenState extends State<BoxScreen> {
           if (value.isNotEmpty) {
             _showAccountTypeDialog(rowIndex);
           } else {
-            FocusScope.of(context).requestFocus(rowFocusNodes[rowIndex][2]);
+            FocusScope.of(context).requestFocus(rowFocusNodes[rowIndex][1]);
           }
         },
         onChanged: (value) {
           _hasUnsavedChanges = true;
           if (value.isNotEmpty && mounted) {
             setState(() {
-              rowControllers[rowIndex][2].text = '';
+              rowControllers[rowIndex][1].text = ''; // يمسح المدفوع [1]
             });
           }
           _calculateAllTotals();
@@ -642,9 +641,7 @@ class _BoxScreenState extends State<BoxScreen> {
         child: Opacity(
           opacity: 0.7,
           child: Container(
-            decoration: BoxDecoration(
-              color: Colors.grey[100],
-            ),
+            decoration: BoxDecoration(color: Colors.grey[100]),
             child: cell,
           ),
         ),
@@ -664,16 +661,16 @@ class _BoxScreenState extends State<BoxScreen> {
         focusNode: focusNode,
         textAlign: TextAlign.center,
         keyboardType: TextInputType.number,
+        // يُعطَّل فقط إذا كان حقل المقبوض [0] ممتلئاً
         enabled:
-            isOwnedByCurrentSeller && rowControllers[rowIndex][1].text.isEmpty,
-        style: TextStyle(
+            isOwnedByCurrentSeller && rowControllers[rowIndex][0].text.isEmpty,
+        style: const TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.w600,
           color: Colors.black,
         ),
-        decoration: InputDecoration(
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
+        decoration: const InputDecoration(
+          contentPadding: EdgeInsets.symmetric(horizontal: 2, vertical: 1),
           border: InputBorder.none,
           hintText: '0.00',
         ),
@@ -688,7 +685,7 @@ class _BoxScreenState extends State<BoxScreen> {
           _hasUnsavedChanges = true;
           if (value.isNotEmpty && mounted) {
             setState(() {
-              rowControllers[rowIndex][1].text = '';
+              rowControllers[rowIndex][0].text = ''; // يمسح المقبوض [0]
             });
           }
           _calculateAllTotals();
@@ -701,9 +698,7 @@ class _BoxScreenState extends State<BoxScreen> {
         child: Opacity(
           opacity: 0.7,
           child: Container(
-            decoration: BoxDecoration(
-              color: Colors.grey[100],
-            ),
+            decoration: BoxDecoration(color: Colors.grey[100]),
             child: cell,
           ),
         ),

@@ -310,10 +310,11 @@ class _SalesScreenState extends State<SalesScreen> {
   }
 
   // تحديث اقتراحات المادة - مثل purchases_screen بالضبط
+  // تحديث اقتراحات المادة - تم التعديل لظهور الاقتراحات بعد حرف واحد
   void _updateMaterialSuggestions(int rowIndex) async {
     final query = rowControllers[rowIndex][0].text;
-    if (query.length >= 3) {
-      // تغيير من 1 إلى 3
+    if (query.length >= 1) {
+      // تم التغيير من 3 إلى 1
       final suggestions =
           await getEnhancedSuggestions(_materialIndexService, query);
       if (mounted) {
@@ -341,8 +342,8 @@ class _SalesScreenState extends State<SalesScreen> {
   // تحديث اقتراحات العبوة - مثل purchases_screen بالضبط
   void _updatePackagingSuggestions(int rowIndex) async {
     final query = rowControllers[rowIndex][2].text;
-    if (query.length >= 3) {
-      // تغيير من 1 إلى 3
+    if (query.length >= 1) {
+      // تم التغيير من 3 إلى 1
       final suggestions =
           await getEnhancedSuggestions(_packagingIndexService, query);
       if (mounted) {
@@ -1477,6 +1478,7 @@ class _SalesScreenState extends State<SalesScreen> {
 
     final query = rowControllers[rowIndex][7].text;
     if (query.length >= 1 && cashOrDebtValues[rowIndex] == 'دين') {
+      // تم التغيير من 1 إلى 1 (يبقى كما هو، ولكن أضفت الشرط بشكل أوضح)
       final suggestions =
           await getEnhancedSuggestions(_customerIndexService, query);
       if (mounted) {
