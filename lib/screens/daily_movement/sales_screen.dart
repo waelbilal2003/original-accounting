@@ -805,7 +805,7 @@ class _SalesScreenState extends State<SalesScreen> {
     if (!_canEditRow(rowIndex)) return;
 
     if (colIndex == 0) {
-      // لا نحفظ الكلمات الأقل من 3 أحرف
+      // حقل المادة
       if (value.trim().length >= 3) {
         _saveMaterialToIndex(value);
       }
@@ -817,7 +817,7 @@ class _SalesScreenState extends State<SalesScreen> {
         FocusScope.of(context).requestFocus(rowFocusNodes[rowIndex][1]);
       }
     } else if (colIndex == 2) {
-      // لا نحفظ الكلمات الأقل من 3 أحرف
+      // حقل العبوة
       if (value.trim().length >= 3) {
         _savePackagingToIndex(value);
       }
@@ -829,10 +829,19 @@ class _SalesScreenState extends State<SalesScreen> {
         FocusScope.of(context).requestFocus(rowFocusNodes[rowIndex][3]);
       }
     } else if (colIndex == 5) {
+      // السعر -> عرض حوار نقدي/دين
       _showCashOrDebtDialog(rowIndex);
     } else if (colIndex == 7) {
-      // ✅ حفظ اسم الزبون فقط إذا كان طوله 3 أحرف أو أكثر
-      final customerName = rowControllers[rowIndex][7].text.trim();
+      // ✅ حقل اسم الزبون (نقدي/دين) - نفس آلية المادة والعبوة
+      final customerName = value.trim();
+
+      // التحقق: إذا كان هناك اقتراحات، نختار أول اقتراح
+      if (_customerSuggestions.isNotEmpty) {
+        _selectCustomerSuggestion(_customerSuggestions[0], rowIndex);
+        return;
+      }
+
+      // إذا لم تكن هناك اقتراحات، نحفظ الاسم المدخل (إذا كان طويلاً بما يكفي)
       if (customerName.isNotEmpty) {
         setState(() {
           customerNames[rowIndex] = customerName;
@@ -842,7 +851,8 @@ class _SalesScreenState extends State<SalesScreen> {
           _saveCustomerToIndex(customerName);
         }
       }
-      // ✅ إنشاء صف جديد مباشرة بدون نافذة فوارغ
+
+      // إنشاء صف جديد بعد حفظ اسم الزبون
       _addNewRow();
       if (rowControllers.isNotEmpty) {
         final newRowIndex = rowControllers.length - 1;

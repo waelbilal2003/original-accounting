@@ -872,14 +872,16 @@ class _SupplierPurchasesScreenState extends State<SupplierPurchasesScreen> {
     final selectedDate = _parseDateFromString(widget.selectedDate);
     if (selectedDate == null) return;
 
-    DateTime rangeStart = DateTime(selectedDate.year, 1, 1);
+    DateTime rangeStart;
     DateTime rangeEnd = selectedDate;
 
-    if (_filterFrom != null && _filterFrom!.isAfter(rangeStart)) {
-      rangeStart = _filterFrom!;
-    }
-    if (_filterTo != null && _filterTo!.isBefore(rangeEnd)) {
-      rangeEnd = _filterTo!;
+    if (_filterFrom != null || _filterTo != null) {
+      rangeStart = _filterFrom ?? DateTime(selectedDate.year, 1, 1);
+      if (_filterTo != null && _filterTo!.isBefore(rangeEnd)) {
+        rangeEnd = _filterTo!;
+      }
+    } else {
+      rangeStart = DateTime(2000, 1, 1);
     }
 
     final List<Purchase> items = [];

@@ -48,28 +48,36 @@ class _CustomerPreferencesScreenState extends State<CustomerPreferencesScreen> {
 
   Future<void> _loadDetails() async {
     final selectedDate = _parseDate(widget.selectedDate);
-    final firstDayOfYear = DateTime(selectedDate.year, 1, 1);
 
-    // تحديد نطاق التحميل الفعلي (مع مراعاة الفلتر)
-    DateTime rangeStart = firstDayOfYear;
+    // تحديد نطاق التحميل
+    DateTime rangeStart;
     DateTime rangeEnd = selectedDate;
 
-    if (_filterFrom != null && _filterFrom!.isAfter(rangeStart)) {
-      rangeStart = _filterFrom!;
-    }
-    if (_filterTo != null && _filterTo!.isBefore(rangeEnd)) {
-      rangeEnd = _filterTo!;
+    if (_filterFrom != null || _filterTo != null) {
+      // يوجد فلتر: نحمّل من أول السنة أو من تاريخ البداية (أيهما أحدث)
+      final firstDayOfYear = DateTime(selectedDate.year, 1, 1);
+      rangeStart = _filterFrom != null && _filterFrom!.isAfter(firstDayOfYear)
+          ? _filterFrom!
+          : firstDayOfYear;
+
+      if (_filterTo != null && _filterTo!.isBefore(rangeEnd)) {
+        rangeEnd = _filterTo!;
+      }
+    } else {
+      // لا يوجد فلتر: نحمّل جميع السجلات من بداية الزمن (أقدم تاريخ موجود)
+      // نستخدم حد أدنى بعيد (مثلاً 2000/1/1)
+      rangeStart = DateTime(2000, 1, 1);
     }
 
     final List<Map<String, String>> transactions = <Map<String, String>>[];
 
-    // التكرار من rangeStart إلى rangeEnd شامل
     int daysDiff = rangeEnd.difference(rangeStart).inDays;
     for (int i = 0; i <= daysDiff; i++) {
       final currentDate = rangeStart.add(Duration(days: i));
       final dateString =
           '${currentDate.year}/${currentDate.month}/${currentDate.day}';
-      // ① مسحوبات من يومية المبيعات
+
+      // باقي الكود كما هو (sales + box)...
       final doc = await _salesService.loadDocumentForDate(dateString);
       if (doc != null) {
         for (var t in doc.sales) {

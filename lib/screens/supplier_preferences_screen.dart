@@ -48,16 +48,21 @@ class _SupplierPreferencesScreenState extends State<SupplierPreferencesScreen> {
 
   Future<void> _loadDetails() async {
     final selectedDate = _parseDate(widget.selectedDate);
-    final firstDayOfYear = DateTime(selectedDate.year, 1, 1);
 
-    DateTime rangeStart = firstDayOfYear;
+    DateTime rangeStart;
     DateTime rangeEnd = selectedDate;
 
-    if (_filterFrom != null && _filterFrom!.isAfter(rangeStart)) {
-      rangeStart = _filterFrom!;
-    }
-    if (_filterTo != null && _filterTo!.isBefore(rangeEnd)) {
-      rangeEnd = _filterTo!;
+    if (_filterFrom != null || _filterTo != null) {
+      final firstDayOfYear = DateTime(selectedDate.year, 1, 1);
+      rangeStart = _filterFrom != null && _filterFrom!.isAfter(firstDayOfYear)
+          ? _filterFrom!
+          : firstDayOfYear;
+
+      if (_filterTo != null && _filterTo!.isBefore(rangeEnd)) {
+        rangeEnd = _filterTo!;
+      }
+    } else {
+      rangeStart = DateTime(2000, 1, 1);
     }
 
     final List<Map<String, String>> transactions = <Map<String, String>>[];
@@ -67,7 +72,6 @@ class _SupplierPreferencesScreenState extends State<SupplierPreferencesScreen> {
       final currentDate = rangeStart.add(Duration(days: i));
       final dateString =
           '${currentDate.year}/${currentDate.month}/${currentDate.day}';
-
       // ① مسحوبات من يومية المشتريات
       final doc = await _purchasesService.loadDocumentForDate(dateString);
       if (doc != null) {
