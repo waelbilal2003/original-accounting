@@ -49,14 +49,20 @@ class _DateRangeFilterIconState extends State<DateRangeFilterIcon> {
       icon: Stack(
         clipBehavior: Clip.none,
         children: [
-          Icon(Icons.date_range, color: widget.color),
+          // ✅ الأيقونة الرئيسية واضحة تماماً
+          Icon(
+            Icons.date_range,
+            color: widget.color,
+            size: 24,
+          ),
+          // ✅ نقطة التنبيه إذا كان الفلتر نشطاً
           if (_isActive)
             Positioned(
               top: -4,
-              left: -4,
+              right: -4,
               child: Container(
-                width: 10,
-                height: 10,
+                width: 12,
+                height: 12,
                 decoration: const BoxDecoration(
                   color: Colors.orange,
                   shape: BoxShape.circle,
@@ -137,41 +143,46 @@ class __DateRangeDialogState extends State<_DateRangeDialog> {
         children: [
           Text(label,
               style: TextStyle(
-                  fontSize: 10, fontWeight: FontWeight.bold, color: color)),
-          const SizedBox(height: 2),
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                  color: color)), // Increased by 50%
+          const SizedBox(height: 3), // Increased by 50%
           Container(
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.grey[300]!),
+              borderRadius: BorderRadius.circular(12), // Increased
+              border: Border.all(
+                  color: Colors.grey[300]!, width: 1.5), // Thicker border
             ),
             child: Column(
               children: [
                 SizedBox(
-                  height: 28,
-                  width: 28,
+                  height: 42, // Increased from 28
+                  width: 42, // Increased from 28
                   child: IconButton(
                     padding: EdgeInsets.zero,
                     icon: Icon(Icons.arrow_drop_up,
-                        size: 22, color: Colors.green[600]),
+                        size: 33,
+                        color: Colors.green[600]), // Increased from 22
                     onPressed: onUp,
                   ),
                 ),
                 SizedBox(
-                  height: 26,
+                  height: 39, // Increased from 26
                   child: Center(
                     child: Text(display,
                         style: const TextStyle(
-                            fontSize: 12, fontWeight: FontWeight.bold)),
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold)), // Increased from 12
                   ),
                 ),
                 SizedBox(
-                  height: 28,
-                  width: 28,
+                  height: 42, // Increased from 28
+                  width: 42, // Increased from 28
                   child: IconButton(
                     padding: EdgeInsets.zero,
                     icon: Icon(Icons.arrow_drop_down,
-                        size: 22, color: Colors.red[600]),
+                        size: 33, color: Colors.red[600]), // Increased from 22
                     onPressed: onDown,
                   ),
                 ),
@@ -193,20 +204,25 @@ class __DateRangeDialogState extends State<_DateRangeDialog> {
         children: [
           Row(
             children: [
-              Icon(Icons.calendar_today, size: 13, color: color),
-              const SizedBox(width: 4),
+              Icon(Icons.calendar_today,
+                  size: 19.5, color: color), // Increased from 13
+              const SizedBox(width: 6), // Increased from 4
               Text(sectionLabel,
                   style: TextStyle(
-                      fontSize: 12, fontWeight: FontWeight.bold, color: color)),
-              const SizedBox(width: 8),
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: color)), // Increased from 12
+              const SizedBox(width: 12), // Increased from 8
               Text(
                 '${date.year}/${date.month}/${date.day}',
                 style: TextStyle(
-                    fontSize: 12, color: color, fontWeight: FontWeight.bold),
+                    fontSize: 18,
+                    color: color,
+                    fontWeight: FontWeight.bold), // Increased from 12
               ),
             ],
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 9), // Increased from 6
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
@@ -250,15 +266,21 @@ class __DateRangeDialogState extends State<_DateRangeDialog> {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        titlePadding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-        contentPadding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24)), // Increased from 16
+        titlePadding:
+            const EdgeInsets.fromLTRB(24, 24, 24, 12), // Increased by 50%
+        contentPadding:
+            const EdgeInsets.fromLTRB(24, 0, 24, 12), // Increased by 50%
         title: Row(
           children: [
-            Icon(Icons.date_range, color: widget.color),
-            const SizedBox(width: 8),
+            Icon(Icons.date_range,
+                color: widget.color, size: 27), // Increased from 18
+            const SizedBox(width: 12), // Increased from 8
             const Text('فلترة بالتاريخ',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 22.5)), // Increased from 15
           ],
         ),
         content: Column(
@@ -276,7 +298,7 @@ class __DateRangeDialogState extends State<_DateRangeDialog> {
                     onChanged: (d) => setState(() => tempFrom = d),
                   ),
                 ),
-                const SizedBox(width: 16),
+                const SizedBox(width: 24), // Increased from 16
                 Expanded(
                   child: datePicker(
                     sectionLabel: 'إلى تاريخ',
@@ -292,6 +314,9 @@ class __DateRangeDialogState extends State<_DateRangeDialog> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
+            style: TextButton.styleFrom(
+              textStyle: const TextStyle(fontSize: 16.5), // Increased
+            ),
             child: const Text('إلغاء'),
           ),
           TextButton(
@@ -299,11 +324,19 @@ class __DateRangeDialogState extends State<_DateRangeDialog> {
               widget.onClear();
               Navigator.pop(context);
             },
+            style: TextButton.styleFrom(
+              textStyle: const TextStyle(fontSize: 16.5), // Increased
+            ),
             child:
                 const Text('مسح الفلتر', style: TextStyle(color: Colors.red)),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: widget.color),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: widget.color,
+              textStyle: const TextStyle(fontSize: 16.5), // Increased
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 24, vertical: 12), // Larger padding
+            ),
             onPressed: () {
               if (tempFrom.isAfter(tempTo)) {
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -343,30 +376,33 @@ class FilterChipWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     if (from == null && to == null) return const SizedBox.shrink();
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.only(bottom: 12), // Increased from 8
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        padding: const EdgeInsets.symmetric(
+            horizontal: 18, vertical: 9), // Increased from 12,6
         decoration: BoxDecoration(
           color: color.withOpacity(0.1),
-          border: Border.all(color: color),
-          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: color, width: 1.5), // Thicker border
+          borderRadius: BorderRadius.circular(12), // Increased from 8
         ),
         child: Row(
           children: [
-            Icon(Icons.filter_alt, color: color, size: 16),
-            const SizedBox(width: 6),
+            Icon(Icons.filter_alt, color: color, size: 24), // Increased from 16
+            const SizedBox(width: 9), // Increased from 6
             Expanded(
               child: Text(
                 'الفلتر: '
                 '${from != null ? '${from!.year}/${from!.month}/${from!.day}' : '—'}'
                 ' ← '
                 '${to != null ? '${to!.year}/${to!.month}/${to!.day}' : '—'}',
-                style: TextStyle(color: color, fontSize: 12),
+                style:
+                    TextStyle(color: color, fontSize: 18), // Increased from 12
               ),
             ),
             GestureDetector(
               onTap: onClear,
-              child: Icon(Icons.close, color: color, size: 16),
+              child: Icon(Icons.close,
+                  color: color, size: 24), // Increased from 16
             ),
           ],
         ),

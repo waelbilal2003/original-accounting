@@ -78,11 +78,16 @@ class _SupplierPurchasesScreenState extends State<SupplierPurchasesScreen> {
     final selectedDate = _parseDateFromString(widget.selectedDate);
     if (selectedDate == null) return;
 
-    DateTime rangeStart = DateTime(selectedDate.year, 1, 1);
-    DateTime rangeEnd = DateTime.now();
+    DateTime rangeStart;
+    DateTime rangeEnd;
 
-    if (_filterFrom != null) rangeStart = _filterFrom!;
-    if (_filterTo != null) rangeEnd = _filterTo!;
+    if (_filterFrom != null || _filterTo != null) {
+      rangeStart = _filterFrom ?? DateTime(selectedDate.year, 1, 1);
+      rangeEnd = _filterTo ?? DateTime.now();
+    } else {
+      rangeStart = selectedDate;
+      rangeEnd = selectedDate;
+    }
 
     final List<Purchase> items = [];
 
@@ -490,7 +495,7 @@ class _SupplierPurchasesScreenState extends State<SupplierPurchasesScreen> {
                         });
                         _loadItems();
                       },
-                      color: Colors.red,
+                      color: Colors.white,
                     ),
                     Container(
                       decoration: BoxDecoration(

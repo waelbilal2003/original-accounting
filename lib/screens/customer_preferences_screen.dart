@@ -420,7 +420,7 @@ class _CustomerPreferencesScreenState extends State<CustomerPreferencesScreen> {
               _loadDetails();
             },
             onClear: _clearFilter,
-            color: Colors.teal,
+            color: Colors.white,
           ),
           IconButton(
             icon: const Icon(Icons.picture_as_pdf),

@@ -422,7 +422,7 @@ class _SupplierPreferencesScreenState extends State<SupplierPreferencesScreen> {
               _loadDetails();
             },
             onClear: _clearFilter,
-            color: Colors.brown,
+            color: Colors.white,
           ),
           IconButton(
             icon: const Icon(Icons.picture_as_pdf),

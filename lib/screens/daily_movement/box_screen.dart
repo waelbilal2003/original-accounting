@@ -1638,7 +1638,6 @@ class _BoxScreenState extends State<BoxScreen> {
     }
 
     try {
-      // جلب الرصيد الحقيقي مباشرة من الفهرس - بدون أي حسابات تراكمية
       double realBalance = 0;
 
       if (type == 'زبون') {
@@ -1655,22 +1654,47 @@ class _BoxScreenState extends State<BoxScreen> {
         return;
       }
 
-      // حساب الباقي بناءً على آخر عملية إدخال فقط + الرصيد الحقيقي
+      double balanceBeforeThisEntry = realBalance;
+
+      final existingDoc =
+          await _storageService.loadBoxDocumentForDate(widget.selectedDate);
+      if (existingDoc != null) {
+        // البحث عن معاملة محفوظة مسبقاً لنفس الحساب في نفس الصف
+        final savedTransactions = existingDoc.transactions.where(
+          (t) =>
+              t.accountName.toLowerCase() == name.toLowerCase() &&
+              t.accountType == type &&
+              t.sellerName == widget.sellerName,
+        );
+
+        for (var savedTrans in savedTransactions) {
+          double savedReceived = double.tryParse(savedTrans.received) ?? 0;
+          double savedPaid = double.tryParse(savedTrans.paid) ?? 0;
+
+          if (type == 'زبون') {
+            // عكس التأثير السابق: كان (paid - received) فنعكسه
+            balanceBeforeThisEntry -= (savedPaid - savedReceived);
+          } else if (type == 'مورد') {
+            // عكس التأثير السابق: كان (received - paid) فنعكسه
+            balanceBeforeThisEntry -= (savedReceived - savedPaid);
+          }
+        }
+      }
+
+      // حساب الباقي بناءً على الرصيد قبل هذه العملية + العملية الحالية
       double remaining = 0;
 
       if (type == 'زبون') {
-        // معادلة الزبون: الرصيد الحقيقي - مقبوض (سدد) + مدفوع (دين جديد)
-        remaining = realBalance - currentReceived + currentPaid;
+        remaining = balanceBeforeThisEntry - currentReceived + currentPaid;
       } else if (type == 'مورد') {
-        // معادلة المورد: الرصيد الحقيقي + مقبوض (دين علينا) - مدفوع (سداد منا)
-        remaining = realBalance + currentReceived - currentPaid;
+        remaining = balanceBeforeThisEntry + currentReceived - currentPaid;
       }
 
       if (mounted) {
         setState(() {
-          _lastFetchedBalance = realBalance; // الرصيد الحقيقي من الفهرس
-          _calculatedRemaining =
-              remaining; // الباقي = آخر عملية + الرصيد الحقيقي
+          _lastFetchedBalance =
+              balanceBeforeThisEntry; // الرصيد قبل هذه العملية
+          _calculatedRemaining = remaining;
           _lastAccountName = name;
         });
       }
