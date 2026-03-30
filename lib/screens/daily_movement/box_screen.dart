@@ -1314,11 +1314,34 @@ class _BoxScreenState extends State<BoxScreen> {
       }
     }
 
-    // 2. منطق تحديث الأرصدة
+    // 2. منطق تحديث الأرصدة الجديد (الإلغاء ثم التطبيق)
     Map<String, double> customerBalanceChanges = {};
     Map<String, double> supplierBalanceChanges = {};
+    final existingDoc =
+        await _storageService.loadBoxDocumentForDate(widget.selectedDate);
 
-    // تطبيق تأثير المعاملات الجديدة مباشرة
+    // الخطوة أ: إلغاء أثر جميع معاملات الصندوق القديمة لهذا البائع
+    if (existingDoc != null) {
+      for (var oldTrans in existingDoc.transactions) {
+        if (oldTrans.sellerName == widget.sellerName &&
+            oldTrans.accountName.isNotEmpty) {
+          double oldReceived = double.tryParse(oldTrans.received) ?? 0;
+          double oldPaid = double.tryParse(oldTrans.paid) ?? 0;
+
+          if (oldTrans.accountType == 'زبون') {
+            double effect = oldPaid - oldReceived;
+            customerBalanceChanges[oldTrans.accountName] =
+                (customerBalanceChanges[oldTrans.accountName] ?? 0) - effect;
+          } else if (oldTrans.accountType == 'مورد') {
+            double effect = oldReceived - oldPaid;
+            supplierBalanceChanges[oldTrans.accountName] =
+                (supplierBalanceChanges[oldTrans.accountName] ?? 0) - effect;
+          }
+        }
+      }
+    }
+
+    // الخطوة ب: تطبيق أثر جميع معاملات الصندوق الجديدة من الواجهة
     for (var newTrans in allTransFromUI) {
       if (newTrans.sellerName == widget.sellerName &&
           newTrans.accountName.isNotEmpty) {
@@ -1360,14 +1383,12 @@ class _BoxScreenState extends State<BoxScreen> {
     final success = await _storageService.saveBoxDocument(documentToSave);
 
     if (success) {
-      // تحديث أرصدة الزبائن
       for (var entry in customerBalanceChanges.entries) {
         if (entry.value != 0) {
           await _customerIndexService.updateCustomerBalance(
               entry.key, entry.value);
         }
       }
-      // تحديث أرصدة الموردين
       for (var entry in supplierBalanceChanges.entries) {
         if (entry.value != 0) {
           await _supplierIndexService.updateSupplierBalance(
@@ -1495,7 +1516,8 @@ class _BoxScreenState extends State<BoxScreen> {
 
     Future.delayed(const Duration(milliseconds: 50), () {
       if (mounted) {
-        FocusScope.of(context).requestFocus(rowFocusNodes[rowIndex][2]);
+        // *** التعديل هنا: الانتقال إلى حقل الملاحظات (البيان) ***
+        FocusScope.of(context).requestFocus(rowFocusNodes[rowIndex][3]);
       }
     });
   }
@@ -1524,7 +1546,8 @@ class _BoxScreenState extends State<BoxScreen> {
 
     Future.delayed(const Duration(milliseconds: 50), () {
       if (mounted) {
-        FocusScope.of(context).requestFocus(rowFocusNodes[rowIndex][2]);
+        // *** التعديل هنا: الانتقال إلى حقل الملاحظات (البيان) ***
+        FocusScope.of(context).requestFocus(rowFocusNodes[rowIndex][3]);
       }
     });
   }
@@ -1607,13 +1630,21 @@ class _BoxScreenState extends State<BoxScreen> {
     final String type = accountTypeValues[rowIndex];
     final String name = rowControllers[rowIndex][2].text.trim();
 
-    if (name.isEmpty || type.isEmpty) {
+    // في حال تم حذف الاسم، قم بإخفاء شريط الرصيد
+    if (name.isEmpty) {
+      if (mounted) {
+        setState(() {
+          _lastFetchedBalance = null;
+          _calculatedRemaining = null;
+          _lastAccountName = '';
+        });
+      }
       return;
     }
 
     try {
-      // 1. جلب الرصيد الأصلي (قبل أي معاملة في هذه اليومية)
-      double originalBalance = 0;
+      // 1. جلب الرصيد الحقيقي من الملفات (قبل أي تغييرات على هذه الشاشة)
+      double realBalance = 0;
 
       if (type == 'زبون') {
         final customers = await _customerIndexService.getAllCustomersWithData();
@@ -1621,45 +1652,46 @@ class _BoxScreenState extends State<BoxScreen> {
           (c) => c.name.toLowerCase() == name.toLowerCase(),
           orElse: () => CustomerData(name: name, balance: 0.0, startDate: ''),
         );
-        originalBalance = customerData.balance;
+        realBalance = customerData.balance;
       } else if (type == 'مورد') {
         final supplierData = await _supplierIndexService.getSupplierData(name);
-        originalBalance = supplierData?.balance ?? 0.0;
+        realBalance = supplierData?.balance ?? 0.0;
       } else {
-        return;
+        return; // ليس زبون أو مورد، لا يوجد رصيد لعرضه
       }
 
-      // 2. حساب تأثير جميع معاملات اليوم (بما فيها الحالية) على هذا الحساب
-      double totalEffectOnThisAccount = 0;
+      // 2. *** الحل: *** تجميع كل العمليات لنفس الحساب من الشاشة الحالية
+      double totalReceivedOnScreen = 0.0;
+      double totalPaidOnScreen = 0.0;
 
       for (int i = 0; i < rowControllers.length; i++) {
-        // نتخطى الصف الحالي لأنه تم حسابه خارج الحلقة لتجنب المضاعفة؟ لا، سندمجه بشكل صحيح
-        if (accountTypeValues[i] != type) continue;
-        if (rowControllers[i][2].text.trim().toLowerCase() !=
-            name.toLowerCase()) continue;
-        if (i < rowSourceTypes.length &&
-            (rowSourceTypes[i] == 'sales' || rowSourceTypes[i] == 'purchase'))
-          continue;
-
-        double received = double.tryParse(rowControllers[i][0].text) ?? 0;
-        double paid = double.tryParse(rowControllers[i][1].text) ?? 0;
-
-        if (type == 'زبون') {
-          // تأثير الزبون: المدفوع يزيد الرصيد (دين جديد)، المقبوض يقلل الرصيد (سداد)
-          totalEffectOnThisAccount += (paid - received);
-        } else if (type == 'مورد') {
-          // تأثير المورد: المقبوض يزيد الرصيد (دين علينا)، المدفوع يقلل الرصيد (سداد)
-          totalEffectOnThisAccount += (received - paid);
+        // التحقق من أن الصف يخص نفس الحساب (نفس الاسم ونفس النوع)
+        if (accountTypeValues[i] == type &&
+            rowControllers[i][2].text.trim().toLowerCase() ==
+                name.toLowerCase()) {
+          totalReceivedOnScreen +=
+              double.tryParse(rowControllers[i][0].text) ?? 0; // مقبوض
+          totalPaidOnScreen +=
+              double.tryParse(rowControllers[i][1].text) ?? 0; // مدفوع
         }
       }
 
-      // 3. حساب الباقي المتوقع بعد تطبيق جميع المعاملات
-      double remaining = originalBalance + totalEffectOnThisAccount;
+      // 3. حساب الرصيد المتبقي الجديد بناءً على المجموع
+      double remaining = 0;
 
+      if (type == 'زبون') {
+        // معادلة الزبون: الرصيد الحقيقي - مجموع المقبوض + مجموع المدفوع (دين جديد)
+        remaining = realBalance - totalReceivedOnScreen + totalPaidOnScreen;
+      } else if (type == 'مورد') {
+        // معادلة المورد: الرصيد الحقيقي + مجموع المقبوض (دين علينا) - مجموع المدفوع
+        remaining = realBalance + totalReceivedOnScreen - totalPaidOnScreen;
+      }
+
+      // 4. تحديث الواجهة بالبيانات الصحيحة
       if (mounted) {
         setState(() {
-          _lastFetchedBalance = originalBalance; // عرض الرصيد الأصلي
-          _calculatedRemaining = remaining; // الباقي المتوقع
+          _lastFetchedBalance = realBalance; // الرصيد قبل التغييرات
+          _calculatedRemaining = remaining; // الباقي المتوقع بعد كل التغييرات
           _lastAccountName = name;
         });
       }
