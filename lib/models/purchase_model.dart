@@ -9,6 +9,7 @@ class Purchase {
   final String total;
   final String cashOrDebt;
   final String sellerName;
+  final String date; // أضف هذا الحقل مع قيمة افتراضية
 
   Purchase({
     required this.material,
@@ -21,6 +22,7 @@ class Purchase {
     required this.total,
     required this.cashOrDebt,
     required this.sellerName,
+    this.date = '', // قيمة افتراضية للحفاظ على التوافق
   });
 
   Purchase copyWith({
@@ -34,6 +36,7 @@ class Purchase {
     String? total,
     String? cashOrDebt,
     String? sellerName,
+    String? date,
   }) {
     return Purchase(
       material: material ?? this.material,
@@ -46,6 +49,7 @@ class Purchase {
       total: total ?? this.total,
       cashOrDebt: cashOrDebt ?? this.cashOrDebt,
       sellerName: sellerName ?? this.sellerName,
+      date: date ?? this.date,
     );
   }
 
@@ -61,6 +65,7 @@ class Purchase {
       total: json['total'] ?? '',
       cashOrDebt: json['cashOrDebt'] ?? '',
       sellerName: json['sellerName'] ?? '',
+      date: json['date'] ?? '', // أضف هذا
     );
   }
 
@@ -76,6 +81,7 @@ class Purchase {
       'total': total,
       'cashOrDebt': cashOrDebt,
       'sellerName': sellerName,
+      'date': date, // أضف هذا
     };
   }
 }

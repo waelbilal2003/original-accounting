@@ -66,6 +66,7 @@ class InvoicesService {
               empties: sale.empties,
               customerName: sale.customerName,
               sellerName: sale.sellerName,
+              date: date, // أضف التاريخ هنا
             ))
         .toList();
 
@@ -101,6 +102,7 @@ class InvoicesService {
             empties: sale.empties,
             customerName: sale.customerName,
             sellerName: sale.sellerName,
+            date: date, // أضف التاريخ هنا
           ));
 
           // *** بداية التعديل: استخدام اسم المادة فقط كمفتاح للتجميع ***
@@ -147,15 +149,29 @@ class InvoicesService {
     }
 
     // البحث في حقل "affiliation" (العائدية) بدلاً من "supplierName" غير الموجود
-    final List<Purchase> supplierPurchases =
-        purchaseDocument.purchases.where((purchase) {
-      final purchaseAffiliation = purchase.affiliation.trim();
-      final targetSupplierName = supplierName.trim();
+    final List<Purchase> supplierPurchases = purchaseDocument.purchases
+        .where((purchase) {
+          final purchaseAffiliation = purchase.affiliation.trim();
+          final targetSupplierName = supplierName.trim();
 
-      // المقارنة تتم الآن مع الحقل الصحيح
-      return purchaseAffiliation.toLowerCase() ==
-          targetSupplierName.toLowerCase();
-    }).toList();
+          // المقارنة تتم الآن مع الحقل الصحيح
+          return purchaseAffiliation.toLowerCase() ==
+              targetSupplierName.toLowerCase();
+        })
+        .map((purchase) => Purchase(
+              material: purchase.material,
+              affiliation: purchase.affiliation,
+              count: purchase.count,
+              packaging: purchase.packaging,
+              standing: purchase.standing,
+              net: purchase.net,
+              price: purchase.price,
+              total: purchase.total,
+              cashOrDebt: purchase.cashOrDebt,
+              sellerName: purchase.sellerName,
+              date: date, // أضف التاريخ هنا
+            ))
+        .toList();
 
     return supplierPurchases;
   }

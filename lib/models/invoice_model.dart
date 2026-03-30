@@ -12,6 +12,7 @@ class InvoiceItem {
   final String empties;
   final String? customerName;
   final String sellerName;
+  final String date; // أضف هذا الحقل
 
   InvoiceItem({
     required this.serialNumber,
@@ -27,5 +28,44 @@ class InvoiceItem {
     required this.empties,
     this.customerName,
     required this.sellerName,
+    required this.date, // أضف هذا في المُنشئ
   });
+
+  factory InvoiceItem.fromJson(Map<String, dynamic> json) {
+    return InvoiceItem(
+      serialNumber: json['serialNumber'] ?? '',
+      material: json['material'] ?? '',
+      affiliation: json['affiliation'] ?? '',
+      sValue: json['sValue'] ?? '',
+      count: json['count'] ?? '',
+      packaging: json['packaging'] ?? '',
+      standing: json['standing'] ?? '',
+      net: json['net'] ?? '',
+      price: json['price'] ?? '',
+      total: json['total'] ?? '',
+      empties: json['empties'] ?? '',
+      customerName: json['customerName'],
+      sellerName: json['sellerName'] ?? '',
+      date: json['date'] ?? '', // أضف هذا
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'serialNumber': serialNumber,
+      'material': material,
+      'affiliation': affiliation,
+      'sValue': sValue,
+      'count': count,
+      'packaging': packaging,
+      'standing': standing,
+      'net': net,
+      'price': price,
+      'total': total,
+      'empties': empties,
+      'customerName': customerName,
+      'sellerName': sellerName,
+      'date': date, // أضف هذا
+    };
+  }
 }

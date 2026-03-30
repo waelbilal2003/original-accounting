@@ -8,6 +8,7 @@ import 'package:share_plus/share_plus.dart';
 import '../services/supplier_index_service.dart';
 import '../services/purchase_storage_service.dart';
 import '../services/box_storage_service.dart';
+import '../../widgets/date_range_filter.dart';
 
 class SupplierPreferencesScreen extends StatefulWidget {
   final SupplierData supplier;
@@ -28,13 +29,9 @@ class _SupplierPreferencesScreenState extends State<SupplierPreferencesScreen> {
 
   bool _isLoading = true;
 
-  /// جميع السجلات المحمّلة من قاعدة البيانات — لا تُمسّ أبداً
   List<Map<String, String>> _allTransactions = <Map<String, String>>[];
-
-  /// السجلات المعروضة في الواجهة فعلياً
   List<Map<String, String>> _visibleTransactions = <Map<String, String>>[];
 
-  /// نطاق الفلتر — null يعني لا فلتر مُطبَّق
   DateTime? _filterFrom;
   DateTime? _filterTo;
 
@@ -44,14 +41,12 @@ class _SupplierPreferencesScreenState extends State<SupplierPreferencesScreen> {
     _loadDetails();
   }
 
-  // ─── تحميل البيانات ───────────────────────────────────────────────
-
   Future<void> _loadDetails() async {
     final selectedDate = _parseDate(widget.selectedDate);
     final firstDayOfYear = DateTime(selectedDate.year, 1, 1);
 
     DateTime rangeStart = firstDayOfYear;
-    DateTime rangeEnd = DateTime.now(); // ← التعديل
+    DateTime rangeEnd = DateTime.now();
 
     if (_filterFrom != null) {
       rangeStart = _filterFrom!;
@@ -67,11 +62,9 @@ class _SupplierPreferencesScreenState extends State<SupplierPreferencesScreen> {
       final dateString =
           '${currentDate.year}/${currentDate.month}/${currentDate.day}';
 
-      // ① مسحوبات من يومية المشتريات
       final doc = await _purchasesService.loadDocumentForDate(dateString);
       if (doc != null) {
         for (var t in doc.purchases) {
-          // مشتريات دين مرتبطة بهذا المورد
           if (t.cashOrDebt == 'دين' &&
               t.affiliation == widget.supplier.name &&
               t.total.isNotEmpty) {
@@ -85,13 +78,11 @@ class _SupplierPreferencesScreenState extends State<SupplierPreferencesScreen> {
         }
       }
 
-      // ② مدفوع من يومية الصندوق (نوع الحساب = مورد واسمه مطابق)
       final boxDoc = await _boxService.loadBoxDocumentForDate(dateString);
       if (boxDoc != null) {
         for (var t in boxDoc.transactions) {
           if (t.accountType == 'مورد' &&
               t.accountName == widget.supplier.name) {
-            // المدفوع
             if (t.paid.isNotEmpty &&
                 t.paid != '0' &&
                 t.paid != '0.0' &&
@@ -103,7 +94,6 @@ class _SupplierPreferencesScreenState extends State<SupplierPreferencesScreen> {
                 'source': 'box_paid',
               });
             }
-            // المقبوض
             if (t.received.isNotEmpty &&
                 t.received != '0' &&
                 t.received != '0.0' &&
@@ -120,7 +110,6 @@ class _SupplierPreferencesScreenState extends State<SupplierPreferencesScreen> {
       }
     }
 
-    // ترتيب بالتاريخ
     transactions.sort((a, b) {
       final da = _parseDateFromString(a['date'] ?? '');
       final db = _parseDateFromString(b['date'] ?? '');
@@ -137,8 +126,6 @@ class _SupplierPreferencesScreenState extends State<SupplierPreferencesScreen> {
 
     _applyFilter();
   }
-
-  // ─── الفلتر ───────────────────────────────────────────────────────
 
   void _applyFilter() {
     if (!mounted) return;
@@ -166,260 +153,6 @@ class _SupplierPreferencesScreenState extends State<SupplierPreferencesScreen> {
     _applyFilter();
   }
 
-  // ─── نافذة اختيار نطاق التاريخ (picker مصغّر) ───────────────────
-
-  Future<void> _showDateRangeDialog() async {
-    final now = DateTime.now();
-    DateTime tempFrom = _filterFrom ?? now;
-    DateTime tempTo = _filterTo ?? now;
-
-    // دالة مساعدة: تأكد أن اليوم لا يتجاوز أيام الشهر
-    DateTime _clampDay(int y, int m, int d) {
-      final max = DateUtils.getDaysInMonth(y, m);
-      return DateTime(y, m, d > max ? max : d);
-    }
-
-    const months = [
-      'يناير',
-      'فبراير',
-      'مارس',
-      'أبريل',
-      'مايو',
-      'يونيو',
-      'يوليو',
-      'أغسطس',
-      'سبتمبر',
-      'أكتوبر',
-      'نوفمبر',
-      'ديسمبر'
-    ];
-
-    // أداة picker مصغّرة لعمود واحد (يوم أو شهر أو سنة)
-    Widget miniPicker({
-      required String label,
-      required String display,
-      required VoidCallback onUp,
-      required VoidCallback onDown,
-      required Color color,
-    }) {
-      return Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(label,
-              style: TextStyle(
-                  fontSize: 10, fontWeight: FontWeight.bold, color: color)),
-          const SizedBox(height: 2),
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.grey[300]!),
-            ),
-            child: Column(
-              children: [
-                SizedBox(
-                  height: 28,
-                  width: 28,
-                  child: IconButton(
-                    padding: EdgeInsets.zero,
-                    icon: Icon(Icons.arrow_drop_up,
-                        size: 22, color: Colors.green[600]),
-                    onPressed: onUp,
-                  ),
-                ),
-                SizedBox(
-                  height: 26,
-                  child: Center(
-                    child: Text(display,
-                        style: const TextStyle(
-                            fontSize: 12, fontWeight: FontWeight.bold)),
-                  ),
-                ),
-                SizedBox(
-                  height: 28,
-                  width: 28,
-                  child: IconButton(
-                    padding: EdgeInsets.zero,
-                    icon: Icon(Icons.arrow_drop_down,
-                        size: 22, color: Colors.red[600]),
-                    onPressed: onDown,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      );
-    }
-
-    // بناء صف الـ picker الكامل لتاريخ واحد
-    Widget datePicker({
-      required String sectionLabel,
-      required DateTime date,
-      required Color color,
-      required void Function(DateTime) onChanged,
-    }) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.calendar_today, size: 13, color: color),
-              const SizedBox(width: 4),
-              Text(sectionLabel,
-                  style: TextStyle(
-                      fontSize: 12, fontWeight: FontWeight.bold, color: color)),
-              const SizedBox(width: 8),
-              Text(
-                '${date.year}/${date.month}/${date.day}',
-                style: TextStyle(
-                    fontSize: 12, color: color, fontWeight: FontWeight.bold),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              // اليوم
-              miniPicker(
-                label: 'اليوم',
-                display: date.day.toString(),
-                color: color,
-                onUp: () =>
-                    onChanged(_clampDay(date.year, date.month, date.day + 1)),
-                onDown: () =>
-                    onChanged(_clampDay(date.year, date.month, date.day - 1)),
-              ),
-              // الشهر
-              miniPicker(
-                label: 'الشهر',
-                display: months[date.month - 1],
-                color: color,
-                onUp: () {
-                  final m = date.month < 12 ? date.month + 1 : 1;
-                  onChanged(_clampDay(date.year, m, date.day));
-                },
-                onDown: () {
-                  final m = date.month > 1 ? date.month - 1 : 12;
-                  onChanged(_clampDay(date.year, m, date.day));
-                },
-              ),
-              // السنة
-              miniPicker(
-                label: 'السنة',
-                display: date.year.toString(),
-                color: color,
-                onUp: () =>
-                    onChanged(_clampDay(date.year + 1, date.month, date.day)),
-                onDown: () =>
-                    onChanged(_clampDay(date.year - 1, date.month, date.day)),
-              ),
-            ],
-          ),
-        ],
-      );
-    }
-
-    await showDialog(
-      context: context,
-      builder: (ctx) {
-        return StatefulBuilder(builder: (ctx, setDialogState) {
-          return Directionality(
-            textDirection: TextDirection.rtl,
-            child: AlertDialog(
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16)),
-              titlePadding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-              contentPadding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-              title: const Row(
-                children: [
-                  Icon(Icons.date_range, color: Colors.brown),
-                  SizedBox(width: 8),
-                  Text('فلترة بالتاريخ',
-                      style:
-                          TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                ],
-              ),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // صف أفقي يحتوي على "من تاريخ" (يمين) و "إلى تاريخ" (يسار)
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: datePicker(
-                          sectionLabel: 'من تاريخ',
-                          date: tempFrom,
-                          color: Colors.brown[700]!,
-                          onChanged: (d) => setDialogState(() => tempFrom = d),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: datePicker(
-                          sectionLabel: 'إلى تاريخ',
-                          date: tempTo,
-                          color: Colors.brown[800]!,
-                          onChanged: (d) => setDialogState(() => tempTo = d),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: const Text('إلغاء'),
-                ),
-                TextButton(
-                  onPressed: () {
-                    setState(() {
-                      _filterFrom = null;
-                      _filterTo = null;
-                    });
-                    _applyFilter();
-                    Navigator.pop(ctx);
-                  },
-                  child: const Text('مسح الفلتر',
-                      style: TextStyle(color: Colors.red)),
-                ),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.brown[700]),
-                  onPressed: () {
-                    if (tempFrom.isAfter(tempTo)) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content:
-                              Text('تاريخ البداية يجب أن يكون قبل النهاية'),
-                          backgroundColor: Colors.red,
-                        ),
-                      );
-                      return;
-                    }
-                    setState(() {
-                      _filterFrom = tempFrom;
-                      _filterTo = tempTo;
-                    });
-                    _applyFilter();
-                    Navigator.pop(ctx);
-                  },
-                  child: const Text('تطبيق',
-                      style: TextStyle(color: Colors.white)),
-                ),
-              ],
-            ),
-          );
-        });
-      },
-    );
-  }
-  // ─── PDF ──────────────────────────────────────────────────────────
-
   Future<void> _generateAndSharePdf() async {
     try {
       final pdf = pw.Document();
@@ -441,7 +174,6 @@ class _SupplierPreferencesScreenState extends State<SupplierPreferencesScreen> {
 
       final displayList = List<Map<String, String>>.from(_visibleTransactions);
 
-      // المورد: مشتريات + صندوق مقبوض = يُجمع | صندوق مدفوع = يُطرح
       final double totalTransactions = displayList.fold<double>(0.0, (sum, p) {
         final val = double.tryParse(p['value'] ?? '0') ?? 0;
         if (p['source'] == 'box_paid') return sum - val;
@@ -454,7 +186,6 @@ class _SupplierPreferencesScreenState extends State<SupplierPreferencesScreen> {
       final totalStr =
           totalTransactions.toStringAsFixed(2).replaceAll(RegExp(r'\.00$'), '');
 
-      // وصف نطاق الفلتر للـ PDF
       String filterDesc = 'حتى تاريخ ${widget.selectedDate}';
       if (_filterFrom != null || _filterTo != null) {
         final from = _filterFrom != null
@@ -662,19 +393,14 @@ class _SupplierPreferencesScreenState extends State<SupplierPreferencesScreen> {
     );
   }
 
-  // ─── Build ────────────────────────────────────────────────────────
-
   @override
   Widget build(BuildContext context) {
-    // المورد: مشتريات + صندوق مقبوض = يُجمع | صندوق مدفوع = يُطرح
     final double totalVisible =
         _visibleTransactions.fold<double>(0.0, (sum, p) {
       final val = double.tryParse(p['value'] ?? '0') ?? 0;
       if (p['source'] == 'box_paid') return sum - val;
       return sum + val;
     });
-
-    final bool hasFilter = _filterFrom != null || _filterTo != null;
 
     return Scaffold(
       appBar: AppBar(
@@ -684,37 +410,20 @@ class _SupplierPreferencesScreenState extends State<SupplierPreferencesScreen> {
         foregroundColor: Colors.white,
         centerTitle: true,
         actions: [
-          // زر الفلتر بالتاريخ
-          IconButton(
-            icon: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                const Icon(Icons.date_range),
-                if (hasFilter)
-                  Positioned(
-                    top: -4,
-                    left: -4,
-                    child: Container(
-                      width: 10,
-                      height: 10,
-                      decoration: const BoxDecoration(
-                        color: Colors.orange,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-            tooltip: 'فلترة بالتاريخ',
-            onPressed: _isLoading ? null : _showDateRangeDialog,
+          DateRangeFilterIcon(
+            from: _filterFrom,
+            to: _filterTo,
+            onFromChanged: (date) {
+              setState(() => _filterFrom = date);
+              _loadDetails();
+            },
+            onToChanged: (date) {
+              setState(() => _filterTo = date);
+              _loadDetails();
+            },
+            onClear: _clearFilter,
+            color: Colors.brown,
           ),
-          // زر مسح الفلتر (يظهر فقط عند وجود فلتر)
-          if (hasFilter)
-            IconButton(
-              icon: const Icon(Icons.filter_alt_off),
-              tooltip: 'مسح الفلتر',
-              onPressed: _clearFilter,
-            ),
           IconButton(
             icon: const Icon(Icons.picture_as_pdf),
             tooltip: 'تصدير PDF',
@@ -731,7 +440,13 @@ class _SupplierPreferencesScreenState extends State<SupplierPreferencesScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // ── بطاقة المعلومات الأساسية ──────────────────
+                    FilterChipWidget(
+                      from: _filterFrom,
+                      to: _filterTo,
+                      onClear: _clearFilter,
+                      color: Colors.brown,
+                    ),
+                    const SizedBox(height: 12),
                     Card(
                       elevation: 3,
                       shape: RoundedRectangleBorder(
@@ -760,47 +475,7 @@ class _SupplierPreferencesScreenState extends State<SupplierPreferencesScreen> {
                         ),
                       ),
                     ),
-
-                    // ── شريط الفلتر الفعّال ───────────────────────
-                    if (hasFilter)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8, bottom: 4),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: Colors.brown[50],
-                            border: Border.all(color: Colors.brown[300]!),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(Icons.filter_alt,
-                                  color: Colors.brown[700], size: 16),
-                              const SizedBox(width: 6),
-                              Expanded(
-                                child: Text(
-                                  'الفلتر: '
-                                  '${_filterFrom != null ? '${_filterFrom!.year}/${_filterFrom!.month}/${_filterFrom!.day}' : '—'}'
-                                  ' ← '
-                                  '${_filterTo != null ? '${_filterTo!.year}/${_filterTo!.month}/${_filterTo!.day}' : '—'}',
-                                  style: TextStyle(
-                                      color: Colors.brown[800], fontSize: 12),
-                                ),
-                              ),
-                              GestureDetector(
-                                onTap: _clearFilter,
-                                child: Icon(Icons.close,
-                                    color: Colors.brown[700], size: 16),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-
                     const SizedBox(height: 12),
-
-                    // ── بطاقة السجلات ─────────────────────────────
                     Card(
                       elevation: 3,
                       shape: RoundedRectangleBorder(

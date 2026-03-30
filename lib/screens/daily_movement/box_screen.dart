@@ -1035,8 +1035,9 @@ class _BoxScreenState extends State<BoxScreen> {
       if (value.isNotEmpty) {
         Future.delayed(const Duration(milliseconds: 150), () {
           if (mounted) {
-            FocusScope.of(context).requestFocus(rowFocusNodes[rowIndex][3]);
-            _scrollToField(rowIndex, 3);
+            // التركيز على حقل اسم الحساب (index 2) وليس حقل الملاحظات (index 3)
+            FocusScope.of(context).requestFocus(rowFocusNodes[rowIndex][2]);
+            _scrollToField(rowIndex, 2);
           }
         });
       }
@@ -1501,22 +1502,19 @@ class _BoxScreenState extends State<BoxScreen> {
       _currentSuggestionType = '';
     });
 
-    rowControllers[rowIndex][3].text = suggestion;
+    rowControllers[rowIndex][2].text = suggestion; // الحساب index 2
     _hasUnsavedChanges = true;
 
-    // تحديث تاريخ البدء إذا كان فارغاً
     if (suggestion.trim().length > 1) {
-      _customerIndexService.saveCustomer(
-        suggestion.trim(),
-        startDate: widget.selectedDate,
-      );
+      _saveCustomerToIndex(suggestion); // استدعاء الدالة المعدلة
     }
 
     _fetchAndCalculateBalance(rowIndex);
 
     Future.delayed(const Duration(milliseconds: 50), () {
       if (mounted) {
-        FocusScope.of(context).requestFocus(rowFocusNodes[rowIndex][4]);
+        FocusScope.of(context)
+            .requestFocus(rowFocusNodes[rowIndex][3]); // ملاحظات
       }
     });
   }
@@ -1530,22 +1528,19 @@ class _BoxScreenState extends State<BoxScreen> {
       _currentSuggestionType = '';
     });
 
-    rowControllers[rowIndex][3].text = suggestion;
+    rowControllers[rowIndex][2].text = suggestion; // الحساب index 2
     _hasUnsavedChanges = true;
 
-    // تحديث تاريخ البدء إذا كان فارغاً
     if (suggestion.trim().length > 1) {
-      _supplierIndexService.saveSupplier(
-        suggestion.trim(),
-        startDate: widget.selectedDate,
-      );
+      _saveSupplierToIndex(suggestion); // استدعاء الدالة المعدلة
     }
 
     _fetchAndCalculateBalance(rowIndex);
 
     Future.delayed(const Duration(milliseconds: 50), () {
       if (mounted) {
-        FocusScope.of(context).requestFocus(rowFocusNodes[rowIndex][4]);
+        FocusScope.of(context)
+            .requestFocus(rowFocusNodes[rowIndex][3]); // ملاحظات
       }
     });
   }
@@ -1553,20 +1548,14 @@ class _BoxScreenState extends State<BoxScreen> {
   void _saveCustomerToIndex(String customer) {
     final trimmedCustomer = customer.trim();
     if (trimmedCustomer.length > 1) {
-      _customerIndexService.saveCustomer(
-        trimmedCustomer,
-        startDate: widget.selectedDate,
-      );
+      _customerIndexService.saveCustomer(trimmedCustomer); // بدون startDate
     }
   }
 
   void _saveSupplierToIndex(String supplier) {
     final trimmedSupplier = supplier.trim();
     if (trimmedSupplier.length > 1) {
-      _supplierIndexService.saveSupplier(
-        trimmedSupplier,
-        startDate: widget.selectedDate,
-      );
+      _supplierIndexService.saveSupplier(trimmedSupplier); // بدون startDate
     }
   }
 
