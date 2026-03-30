@@ -3,19 +3,19 @@ import 'package:flutter/services.dart';
 import 'dart:async';
 import '../../models/box_model.dart';
 import '../../services/box_storage_service.dart';
-import '../../widgets/table_builder.dart' as TableBuilder;
 import '../../widgets/table_components.dart' as TableComponents;
 import '../../services/customer_index_service.dart';
 import '../../services/supplier_index_service.dart';
 import '../../services/enhanced_index_service.dart';
 import '../../widgets/suggestions_banner.dart';
-import '../../services/supplier_balance_tracker.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import '../../services/app_settings_service.dart';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:share_plus/share_plus.dart';
+import '../../services/sales_storage_service.dart';
+import '../../services/purchase_storage_service.dart';
 
 class BoxScreen extends StatefulWidget {
   final String sellerName;
@@ -92,7 +92,7 @@ class _BoxScreenState extends State<BoxScreen> {
   // ============ تحديث أرصدة الموردين والزبائن ============
   Map<String, double> customerBalanceChanges = {};
   Map<String, double> supplierBalanceChanges = {};
-  final SupplierBalanceTracker _balanceTracker = SupplierBalanceTracker();
+
   // متغير لتأخير حساب المجاميع (debouncing)
   Timer? _calculateTotalsDebouncer;
   bool _isCalculating = false;
@@ -100,7 +100,10 @@ class _BoxScreenState extends State<BoxScreen> {
   double? _lastFetchedBalance;
   double? _calculatedRemaining;
   String _lastAccountName = '';
-
+  double _grandTotalReceived = 0.0;
+  double _grandTotalPaid = 0.0;
+// قائمة لتخزين نوع الصف: 'box' أو 'sales' أو 'purchase' (للتمييز عن السجلات المستوردة)
+  List<String> rowSourceTypes = [];
   @override
   void initState() {
     super.initState();
@@ -153,7 +156,6 @@ class _BoxScreenState extends State<BoxScreen> {
     // إغلاق المتحكم
     _horizontalSuggestionsController.dispose();
 
-    _balanceTracker.dispose();
     _calculateTotalsDebouncer?.cancel();
     super.dispose();
   }
@@ -186,10 +188,60 @@ class _BoxScreenState extends State<BoxScreen> {
         _availableDates = dates;
         _isLoadingDates = false;
       });
+      _loadGrandTotal();
     } catch (e) {
       setState(() {
         _availableDates = [];
         _isLoadingDates = false;
+      });
+    }
+  }
+
+  Future<void> _loadGrandTotal() async {
+    double totalRec = 0.0, totalPaid = 0.0;
+
+    // 1. جمع أرصدة يوميات الصندوق (السجلات اليدوية فقط)
+    for (var dateInfo in _availableDates) {
+      final doc =
+          await _storageService.loadBoxDocumentForDate(dateInfo['date']!);
+      if (doc != null) {
+        totalRec += double.tryParse(doc.totals['totalReceived'] ?? '0') ?? 0;
+        totalPaid += double.tryParse(doc.totals['totalPaid'] ?? '0') ?? 0;
+      }
+    }
+
+    // 2. جمع المبيعات النقدية من جميع التواريخ المتاحة
+    final salesService = SalesStorageService();
+    final salesDates = await salesService.getAllAvailableDates();
+    for (var date in salesDates) {
+      final salesDoc = await salesService.loadSalesDocument(date);
+      if (salesDoc != null) {
+        for (var sale in salesDoc.sales) {
+          if (sale.cashOrDebt == 'نقدي') {
+            totalRec += double.tryParse(sale.total) ?? 0;
+          }
+        }
+      }
+    }
+
+    // 3. جمع المشتريات النقدية من جميع التواريخ المتاحة
+    final purchaseService = PurchaseStorageService();
+    final purchaseDates = await purchaseService.getAllAvailableDates();
+    for (var date in purchaseDates) {
+      final purchaseDoc = await purchaseService.loadPurchaseDocument(date);
+      if (purchaseDoc != null) {
+        for (var purchase in purchaseDoc.purchases) {
+          if (purchase.cashOrDebt == 'نقدي') {
+            totalPaid += double.tryParse(purchase.total) ?? 0;
+          }
+        }
+      }
+    }
+
+    if (mounted) {
+      setState(() {
+        _grandTotalReceived = totalRec;
+        _grandTotalPaid = totalPaid;
       });
     }
   }
@@ -200,12 +252,13 @@ class _BoxScreenState extends State<BoxScreen> {
         await _storageService.loadBoxDocumentForDate(widget.selectedDate);
 
     if (document != null && document.transactions.isNotEmpty) {
-      // تحميل اليومية الموجودة
       _loadJournal(document);
     } else {
-      // إنشاء يومية جديدة
       _createNewJournal();
     }
+
+    // بعد التحميل أو الإنشاء، نجلب السجلات النقدية من المبيعات والمشتريات
+    await _loadCashTransactionsFromOtherJournals();
   }
 
   void _resetTotalValues() {
@@ -219,6 +272,7 @@ class _BoxScreenState extends State<BoxScreen> {
       rowFocusNodes.clear();
       accountTypeValues.clear();
       sellerNames.clear();
+      rowSourceTypes.clear();
       _resetTotalValues();
       _hasUnsavedChanges = false;
       _addNewRow();
@@ -227,19 +281,15 @@ class _BoxScreenState extends State<BoxScreen> {
 
   void _addNewRow() {
     setState(() {
-      final newSerialNumber = (rowControllers.length + 1).toString();
-
+      // تغيير من 5 إلى 4 أعمدة (حذف العمود الأول للرقم التسلسلي)
       List<TextEditingController> newControllers =
-          List.generate(5, (index) => TextEditingController());
+          List.generate(4, (index) => TextEditingController());
 
-      List<FocusNode> newFocusNodes = List.generate(5, (index) => FocusNode());
+      List<FocusNode> newFocusNodes = List.generate(4, (index) => FocusNode());
 
-      newControllers[0].text = newSerialNumber;
-
-      // إضافة مستمع FocusNode لحقل اسم الحساب
-      newFocusNodes[3].addListener(() {
-        if (!newFocusNodes[3].hasFocus) {
-          // إخفاء الاقتراحات عند فقدان التركيز
+      // إضافة مستمع FocusNode لحقل اسم الحساب (الآن index 2 بدلاً من 3)
+      newFocusNodes[2].addListener(() {
+        if (!newFocusNodes[2].hasFocus) {
           Future.delayed(const Duration(milliseconds: 100), () {
             if (mounted) {
               setState(() {
@@ -255,21 +305,21 @@ class _BoxScreenState extends State<BoxScreen> {
         }
       });
 
-      // إضافة مستمعات للتغيير
       _addChangeListenersToControllers(newControllers, rowControllers.length);
 
-      // تخزين اسم البائع للصف الجديد
       sellerNames.add(widget.sellerName);
 
       rowControllers.add(newControllers);
       rowFocusNodes.add(newFocusNodes);
       accountTypeValues.add('');
+      rowSourceTypes.add('box');
     });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (rowFocusNodes.isNotEmpty) {
         final newRowIndex = rowFocusNodes.length - 1;
-        FocusScope.of(context).requestFocus(rowFocusNodes[newRowIndex][1]);
+        // التركيز على حقل المقبوض (index 0) بدلاً من 1
+        FocusScope.of(context).requestFocus(rowFocusNodes[newRowIndex][0]);
       }
     });
   }
@@ -291,66 +341,47 @@ class _BoxScreenState extends State<BoxScreen> {
   // دالة مساعدة لإضافة المستمعات
   void _addChangeListenersToControllers(
       List<TextEditingController> controllers, int rowIndex) {
-    // حقل المقبوض (تعديل: إضافة حساب الرصيد الفوري)
-    controllers[1].addListener(() {
+    // حقل المقبوض (index 0)
+    controllers[0].addListener(() {
       _hasUnsavedChanges = true;
-      if (controllers[1].text.isNotEmpty) {
-        controllers[2].text = '';
-      }
-      _calculateAllTotals();
-      // استدعاء حساب الرصيد والباقي فورياً عند الكتابة
-      _fetchAndCalculateBalance(rowIndex);
-    });
-
-    // حقل المدفوع (تعديل: إضافة حساب الرصيد الفوري)
-    controllers[2].addListener(() {
-      _hasUnsavedChanges = true;
-      if (controllers[2].text.isNotEmpty) {
+      if (controllers[0].text.isNotEmpty) {
         controllers[1].text = '';
       }
       _calculateAllTotals();
-      // استدعاء حساب الرصيد والباقي فورياً عند الكتابة
       _fetchAndCalculateBalance(rowIndex);
     });
 
-    // حقل اسم الحساب (الحقل رقم 3)
-    controllers[3].addListener(() {
+    // حقل المدفوع (index 1)
+    controllers[1].addListener(() {
+      _hasUnsavedChanges = true;
+      if (controllers[1].text.isNotEmpty) {
+        controllers[0].text = '';
+      }
+      _calculateAllTotals();
+      _fetchAndCalculateBalance(rowIndex);
+    });
+
+    // حقل اسم الحساب (index 2)
+    controllers[2].addListener(() {
       _hasUnsavedChanges = true;
 
-      // فقط تحديث الاقتراحات بناءً على نوع الحساب
       if (accountTypeValues[rowIndex] == 'زبون') {
         _updateCustomerSuggestions(rowIndex);
       } else if (accountTypeValues[rowIndex] == 'مورد') {
         _updateSupplierSuggestions(rowIndex);
-      } else {
-        // إذا كان نوع الحساب "مصروف" أو أي شيء آخر
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            setState(() {
-              _customerSuggestions = [];
-              _supplierSuggestions = [];
-              _activeCustomerRowIndex = null;
-              _activeSupplierRowIndex = null;
-              _showFullScreenSuggestions = false;
-              _currentSuggestionType = '';
-            });
-          }
-        });
       }
     });
 
-    // حقل الملاحظات
-    controllers[4].addListener(() => _hasUnsavedChanges = true);
+    // حقل الملاحظات (index 3)
+    controllers[3].addListener(() => _hasUnsavedChanges = true);
 
-    // إضافة مستمع FocusNode لحقل اسم الحساب (الحقل 3) فقط لإخفاء الاقتراحات عند فقدان التركيز
-    if (rowIndex < rowFocusNodes.length && rowFocusNodes[rowIndex].length > 3) {
-      rowFocusNodes[rowIndex][3].addListener(() {
-        if (!rowFocusNodes[rowIndex][3].hasFocus) {
-          // إخفاء الاقتراحات بعد تأخير بسيط
+    // إضافة مستمع FocusNode لحقل اسم الحساب
+    if (rowIndex < rowFocusNodes.length && rowFocusNodes[rowIndex].length > 2) {
+      rowFocusNodes[rowIndex][2].addListener(() {
+        if (!rowFocusNodes[rowIndex][2].hasFocus) {
           Future.delayed(const Duration(milliseconds: 100), () {
             if (mounted) {
               setState(() {
-                // إخفاء الاقتراحات فقط
                 _customerSuggestions = [];
                 _supplierSuggestions = [];
                 _activeCustomerRowIndex = null;
@@ -366,10 +397,8 @@ class _BoxScreenState extends State<BoxScreen> {
   }
 
   void _calculateAllTotals() {
-    // إلغاء أي حساب سابق منتظر
     _calculateTotalsDebouncer?.cancel();
 
-    // تأخير الحساب لتجنب التكرار المتعدد
     _calculateTotalsDebouncer = Timer(const Duration(milliseconds: 50), () {
       if (!mounted || _isCalculating) return;
 
@@ -380,8 +409,9 @@ class _BoxScreenState extends State<BoxScreen> {
 
       for (var controllers in rowControllers) {
         try {
-          totalReceived += double.tryParse(controllers[1].text) ?? 0;
-          totalPaid += double.tryParse(controllers[2].text) ?? 0;
+          totalReceived +=
+              double.tryParse(controllers[0].text) ?? 0; // [0] مقبوض
+          totalPaid += double.tryParse(controllers[1].text) ?? 0; // [1] مدفوع
         } catch (e) {}
       }
 
@@ -399,7 +429,6 @@ class _BoxScreenState extends State<BoxScreen> {
   // تعديل _loadJournal لاستخدام الدالة المساعدة
   void _loadJournal(BoxDocument document) {
     setState(() {
-      // تنظيف المتحكمات القديمة
       for (var row in rowControllers) {
         for (var controller in row) {
           controller.dispose();
@@ -411,18 +440,17 @@ class _BoxScreenState extends State<BoxScreen> {
         }
       }
 
-      // إعادة تهيئة القوائم
       rowControllers.clear();
       rowFocusNodes.clear();
       accountTypeValues.clear();
       sellerNames.clear();
+      rowSourceTypes.clear();
 
-      // تحميل السجلات من الوثيقة
       for (int i = 0; i < document.transactions.length; i++) {
         var transaction = document.transactions[i];
 
+        // تغيير من 5 إلى 4 أعمدة
         List<TextEditingController> newControllers = [
-          TextEditingController(text: transaction.serialNumber),
           TextEditingController(text: transaction.received),
           TextEditingController(text: transaction.paid),
           TextEditingController(text: transaction.accountName),
@@ -430,16 +458,14 @@ class _BoxScreenState extends State<BoxScreen> {
         ];
 
         List<FocusNode> newFocusNodes =
-            List.generate(5, (index) => FocusNode());
+            List.generate(4, (index) => FocusNode());
 
-        // تخزين اسم البائع لهذا الصف
         sellerNames.add(transaction.sellerName);
+        rowSourceTypes.add('box');
 
-        // التحقق إذا كان السجل مملوكاً للبائع الحالي
         final bool isOwnedByCurrentSeller =
             transaction.sellerName == widget.sellerName;
 
-        // إضافة مستمعات للتغيير فقط إذا كان السجل مملوكاً للبائع الحالي
         if (isOwnedByCurrentSeller) {
           _addChangeListenersToControllers(newControllers, i);
         }
@@ -449,7 +475,6 @@ class _BoxScreenState extends State<BoxScreen> {
         accountTypeValues.add(transaction.accountType);
       }
 
-      // تحميل المجاميع
       if (document.totals.isNotEmpty) {
         totalReceivedController.text =
             document.totals['totalReceived'] ?? '0.00';
@@ -483,18 +508,16 @@ class _BoxScreenState extends State<BoxScreen> {
   Widget _buildTableHeader() {
     return Table(
       columnWidths: {
-        0: FlexColumnWidth(0.09),
-        1: FlexColumnWidth(0.18),
-        2: FlexColumnWidth(0.18),
-        3: FlexColumnWidth(0.37),
-        4: FlexColumnWidth(0.18),
+        0: FlexColumnWidth(0.2), // مقبوض
+        1: FlexColumnWidth(0.2), // مدفوع
+        2: FlexColumnWidth(0.4), // الحساب
+        3: FlexColumnWidth(0.2), // ملاحظات
       },
       border: TableBorder.all(color: Colors.grey, width: 0.5),
       children: [
         TableRow(
           decoration: BoxDecoration(color: Colors.grey[200]),
           children: [
-            TableComponents.buildTableHeaderCell('مسلسل'),
             TableComponents.buildTableHeaderCell('مقبوض'),
             TableComponents.buildTableHeaderCell('مدفوع'),
             TableComponents.buildTableHeaderCell('الحساب'),
@@ -510,19 +533,28 @@ class _BoxScreenState extends State<BoxScreen> {
 
     for (int i = 0; i < rowControllers.length; i++) {
       final bool isOwnedByCurrentSeller = sellerNames[i] == widget.sellerName;
+      final String sourceType =
+          (i < rowSourceTypes.length) ? rowSourceTypes[i] : 'box';
+      final bool isReadOnly = sourceType == 'sales' || sourceType == 'purchase';
+
+      Color? rowColor;
+      if (sourceType == 'sales') {
+        rowColor = Colors.green[50];
+      } else if (sourceType == 'purchase') {
+        rowColor = Colors.orange[50];
+      }
 
       contentRows.add(
         TableRow(
+          decoration: rowColor != null ? BoxDecoration(color: rowColor) : null,
           children: [
-            _buildTableCell(rowControllers[i][0], rowFocusNodes[i][0], i, 0,
-                isOwnedByCurrentSeller),
-            _buildReceivedCell(rowControllers[i][1], rowFocusNodes[i][1], i, 1,
-                isOwnedByCurrentSeller),
-            _buildPaidCell(rowControllers[i][2], rowFocusNodes[i][2], i, 2,
-                isOwnedByCurrentSeller),
-            _buildAccountCell(i, 3, isOwnedByCurrentSeller),
-            _buildNotesCell(rowControllers[i][4], rowFocusNodes[i][4], i, 4,
-                isOwnedByCurrentSeller),
+            _buildReceivedCell(rowControllers[i][0], rowFocusNodes[i][0], i, 0,
+                !isReadOnly && isOwnedByCurrentSeller),
+            _buildPaidCell(rowControllers[i][1], rowFocusNodes[i][1], i, 1,
+                !isReadOnly && isOwnedByCurrentSeller),
+            _buildAccountCell(i, 2, !isReadOnly && isOwnedByCurrentSeller),
+            _buildNotesCell(rowControllers[i][3], rowFocusNodes[i][3], i, 3,
+                !isReadOnly && isOwnedByCurrentSeller),
           ],
         ),
       );
@@ -533,11 +565,10 @@ class _BoxScreenState extends State<BoxScreen> {
         TableRow(
           decoration: BoxDecoration(color: Colors.yellow[50]),
           children: [
-            _buildEmptyCell(),
             TableComponents.buildTotalCell(totalReceivedController),
             TableComponents.buildTotalCell(totalPaidController),
-            _buildEmptyCell(),
-            _buildEmptyCell(),
+            TableComponents.buildTotalLabelCell(''), // الحساب (فارغ)
+            TableComponents.buildTotalLabelCell(''), // ملاحظات (فارغ)
           ],
         ),
       );
@@ -545,51 +576,14 @@ class _BoxScreenState extends State<BoxScreen> {
 
     return Table(
       columnWidths: {
-        0: FlexColumnWidth(0.09),
-        1: FlexColumnWidth(0.18),
-        2: FlexColumnWidth(0.18),
-        3: FlexColumnWidth(0.37),
-        4: FlexColumnWidth(0.18),
+        0: FlexColumnWidth(0.2), // مقبوض
+        1: FlexColumnWidth(0.2), // مدفوع
+        2: FlexColumnWidth(0.4), // الحساب
+        3: FlexColumnWidth(0.2), // ملاحظات
       },
       border: TableBorder.all(color: Colors.grey, width: 0.5),
       children: contentRows,
     );
-  }
-
-  Widget _buildTableCell(TextEditingController controller, FocusNode focusNode,
-      int rowIndex, int colIndex, bool isOwnedByCurrentSeller) {
-    bool isSerialField = colIndex == 0;
-
-    Widget cell = TableBuilder.buildTableCell(
-      controller: controller,
-      focusNode: focusNode,
-      isSerialField: isSerialField,
-      isNumericField: false,
-      rowIndex: rowIndex,
-      colIndex: colIndex,
-      scrollToField: _scrollToField,
-      onFieldSubmitted: (value, rIndex, cIndex) =>
-          _handleFieldSubmitted(value, rIndex, cIndex),
-      onFieldChanged: (value, rIndex, cIndex) =>
-          _handleFieldChanged(value, rIndex, cIndex),
-      inputFormatters: null,
-    );
-
-    if (!isOwnedByCurrentSeller) {
-      return IgnorePointer(
-        child: Opacity(
-          opacity: 0.7,
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.grey[100],
-            ),
-            child: cell,
-          ),
-        ),
-      );
-    }
-
-    return cell;
   }
 
   Widget _buildReceivedCell(
@@ -606,16 +600,16 @@ class _BoxScreenState extends State<BoxScreen> {
         focusNode: focusNode,
         textAlign: TextAlign.center,
         keyboardType: TextInputType.number,
+        // يُعطَّل فقط إذا كان حقل المدفوع [1] ممتلئاً
         enabled:
-            isOwnedByCurrentSeller && rowControllers[rowIndex][2].text.isEmpty,
-        style: TextStyle(
-          fontSize: 12,
+            isOwnedByCurrentSeller && rowControllers[rowIndex][1].text.isEmpty,
+        style: const TextStyle(
+          fontSize: 16,
           fontWeight: FontWeight.w600,
           color: Colors.black,
         ),
-        decoration: InputDecoration(
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
+        decoration: const InputDecoration(
+          contentPadding: EdgeInsets.symmetric(horizontal: 2, vertical: 1),
           border: InputBorder.none,
           hintText: '0.00',
         ),
@@ -627,14 +621,14 @@ class _BoxScreenState extends State<BoxScreen> {
           if (value.isNotEmpty) {
             _showAccountTypeDialog(rowIndex);
           } else {
-            FocusScope.of(context).requestFocus(rowFocusNodes[rowIndex][2]);
+            FocusScope.of(context).requestFocus(rowFocusNodes[rowIndex][1]);
           }
         },
         onChanged: (value) {
           _hasUnsavedChanges = true;
           if (value.isNotEmpty && mounted) {
             setState(() {
-              rowControllers[rowIndex][2].text = '';
+              rowControllers[rowIndex][1].text = ''; // يمسح المدفوع [1]
             });
           }
           _calculateAllTotals();
@@ -647,9 +641,7 @@ class _BoxScreenState extends State<BoxScreen> {
         child: Opacity(
           opacity: 0.7,
           child: Container(
-            decoration: BoxDecoration(
-              color: Colors.grey[100],
-            ),
+            decoration: BoxDecoration(color: Colors.grey[100]),
             child: cell,
           ),
         ),
@@ -669,16 +661,16 @@ class _BoxScreenState extends State<BoxScreen> {
         focusNode: focusNode,
         textAlign: TextAlign.center,
         keyboardType: TextInputType.number,
+        // يُعطَّل فقط إذا كان حقل المقبوض [0] ممتلئاً
         enabled:
-            isOwnedByCurrentSeller && rowControllers[rowIndex][1].text.isEmpty,
-        style: TextStyle(
-          fontSize: 12,
+            isOwnedByCurrentSeller && rowControllers[rowIndex][0].text.isEmpty,
+        style: const TextStyle(
+          fontSize: 16,
           fontWeight: FontWeight.w600,
           color: Colors.black,
         ),
-        decoration: InputDecoration(
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
+        decoration: const InputDecoration(
+          contentPadding: EdgeInsets.symmetric(horizontal: 2, vertical: 1),
           border: InputBorder.none,
           hintText: '0.00',
         ),
@@ -693,7 +685,7 @@ class _BoxScreenState extends State<BoxScreen> {
           _hasUnsavedChanges = true;
           if (value.isNotEmpty && mounted) {
             setState(() {
-              rowControllers[rowIndex][1].text = '';
+              rowControllers[rowIndex][0].text = ''; // يمسح المقبوض [0]
             });
           }
           _calculateAllTotals();
@@ -706,9 +698,7 @@ class _BoxScreenState extends State<BoxScreen> {
         child: Opacity(
           opacity: 0.7,
           child: Container(
-            decoration: BoxDecoration(
-              color: Colors.grey[100],
-            ),
+            decoration: BoxDecoration(color: Colors.grey[100]),
             child: cell,
           ),
         ),
@@ -721,28 +711,23 @@ class _BoxScreenState extends State<BoxScreen> {
   // تحديث خلية الحساب لدعم كلا النوعين
   Widget _buildAccountCell(
       int rowIndex, int colIndex, bool isOwnedByCurrentSeller) {
-    // 1. استخدام دالة التحقق المركزية
     final bool canEdit = _canEditRow(rowIndex);
-
     final String accountType = accountTypeValues[rowIndex];
     final TextEditingController accountNameController =
-        rowControllers[rowIndex][3];
-    final FocusNode accountNameFocusNode = rowFocusNodes[rowIndex][3];
+        rowControllers[rowIndex][2]; // index 2
+    final FocusNode accountNameFocusNode = rowFocusNodes[rowIndex][2];
 
     Widget cellContent;
 
-    // إذا كان نوع الحساب تم اختياره (زبون، مورد، أو مصروف)
     if (accountType.isNotEmpty) {
       cellContent = Container(
         padding: const EdgeInsets.all(1),
         constraints: const BoxConstraints(minHeight: 25),
         child: Row(
           children: [
-            // جزء عرض نوع الحساب وقابلية تغييره
             Expanded(
               flex: 2,
               child: InkWell(
-                // لا يسمح بفتح الديالوج إلا إذا كان يملك الصلاحية
                 onTap: canEdit ? () => _showAccountTypeDialog(rowIndex) : null,
                 child: Container(
                   decoration: BoxDecoration(
@@ -751,7 +736,6 @@ class _BoxScreenState extends State<BoxScreen> {
                       width: 0.5,
                     ),
                     borderRadius: BorderRadius.circular(2),
-                    // تمييز خلفية النوع المختار
                     color: _getAccountTypeColor(accountType).withOpacity(0.1),
                   ),
                   padding:
@@ -760,7 +744,7 @@ class _BoxScreenState extends State<BoxScreen> {
                     child: Text(
                       accountType,
                       style: TextStyle(
-                        fontSize: 10,
+                        fontSize: 16,
                         color: _getAccountTypeColor(accountType),
                         fontWeight: FontWeight.bold,
                       ),
@@ -773,17 +757,15 @@ class _BoxScreenState extends State<BoxScreen> {
               ),
             ),
             const SizedBox(width: 4),
-            // جزء إدخال اسم الحساب (مع دعم الاقتراحات)
             Expanded(
               flex: 5,
               child: TextField(
                 controller: accountNameController,
                 focusNode: accountNameFocusNode,
                 textAlign: TextAlign.right,
-                // قفل أو فتح الحقل بناءً على الصلاحية
                 enabled: canEdit,
                 style: const TextStyle(
-                  fontSize: 11,
+                  fontSize: 16,
                   fontWeight: FontWeight.w600,
                   color: Colors.black,
                 ),
@@ -794,14 +776,13 @@ class _BoxScreenState extends State<BoxScreen> {
                     borderSide: BorderSide(color: Colors.grey, width: 0.5),
                   ),
                   hintText: _getAccountHintText(accountType),
-                  hintStyle: const TextStyle(fontSize: 10, color: Colors.grey),
+                  hintStyle: const TextStyle(fontSize: 16, color: Colors.grey),
                   isDense: true,
                 ),
                 onSubmitted: (value) =>
                     _handleFieldSubmitted(value, rowIndex, colIndex),
                 onChanged: (value) {
                   _hasUnsavedChanges = true;
-                  // تفعيل الاقتراحات حسب النوع
                   if (accountType == 'زبون') {
                     _updateCustomerSuggestions(rowIndex);
                   } else if (accountType == 'مورد') {
@@ -814,7 +795,6 @@ class _BoxScreenState extends State<BoxScreen> {
         ),
       );
     } else {
-      // عرض زر "اختر" في حال كان السجل جديداً ولم يحدد نوعه بعد
       cellContent = InkWell(
         onTap: canEdit ? () => _showAccountTypeDialog(rowIndex) : null,
         child: Container(
@@ -829,21 +809,20 @@ class _BoxScreenState extends State<BoxScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: const [
               Text('اختر النوع',
-                  style: TextStyle(fontSize: 10, color: Colors.blueGrey)),
-              Icon(Icons.arrow_drop_down, size: 14, color: Colors.blueGrey),
+                  style: TextStyle(fontSize: 16, color: Colors.blueGrey)),
+              Icon(Icons.arrow_drop_down, size: 16, color: Colors.blueGrey),
             ],
           ),
         ),
       );
     }
 
-    // 2. تطبيق الحماية البصرية والمنطقية النهائية (مثل شاشة الاستلام)
     if (!canEdit) {
       return IgnorePointer(
         child: Opacity(
-          opacity: 0.6, // جعل السجل باهتاً للدلالة على أنه للقراءة فقط
+          opacity: 0.6,
           child: Container(
-            color: Colors.grey[100], // خلفية رمادية خفيفة
+            color: Colors.grey[100],
             child: cellContent,
           ),
         ),
@@ -851,22 +830,6 @@ class _BoxScreenState extends State<BoxScreen> {
     }
 
     return cellContent;
-  }
-
-  Widget _buildEmptyCell() {
-    return Container(
-      padding: const EdgeInsets.all(1),
-      constraints: const BoxConstraints(minHeight: 25),
-      child: TextField(
-        controller: TextEditingController()..text = '',
-        focusNode: FocusNode(),
-        enabled: false,
-        decoration: const InputDecoration(
-          contentPadding: EdgeInsets.symmetric(horizontal: 2, vertical: 1),
-          border: InputBorder.none,
-        ),
-      ),
-    );
   }
 
   Widget _buildNotesCell(TextEditingController controller, FocusNode focusNode,
@@ -880,7 +843,7 @@ class _BoxScreenState extends State<BoxScreen> {
         textAlign: TextAlign.center,
         enabled: isOwnedByCurrentSeller,
         style: TextStyle(
-          fontSize: 12,
+          fontSize: 16,
           fontWeight: FontWeight.w600,
           color: Colors.black,
         ),
@@ -932,7 +895,7 @@ class _BoxScreenState extends State<BoxScreen> {
       case 'مورد':
         return Colors.blue;
       case 'مصروف':
-        return Colors.orange;
+        return Colors.red;
       default:
         return Colors.grey;
     }
@@ -957,38 +920,32 @@ class _BoxScreenState extends State<BoxScreen> {
     }
 
     if (colIndex == 0) {
-      FocusScope.of(context).requestFocus(rowFocusNodes[rowIndex][1]);
-    } else if (colIndex == 1) {
+      // مقبوض
       if (value.isNotEmpty) {
         _showAccountTypeDialog(rowIndex);
       } else {
-        FocusScope.of(context).requestFocus(rowFocusNodes[rowIndex][2]);
+        FocusScope.of(context).requestFocus(rowFocusNodes[rowIndex][1]);
       }
-    } else if (colIndex == 2) {
+    } else if (colIndex == 1) {
+      // مدفوع
       _showAccountTypeDialog(rowIndex);
-    } else if (colIndex == 3) {
-      // 1. الأولوية القصوى: هل يوجد اقتراح زبون مطابق؟
+    } else if (colIndex == 2) {
+      // الحساب
       if (accountTypeValues[rowIndex] == 'زبون' &&
           _customerSuggestions.isNotEmpty) {
         _selectCustomerSuggestion(_customerSuggestions[0], rowIndex);
-        // *** إضافة: الحفظ الفوري بعد اختيار الاقتراح ***
         _saveCurrentRecord(silent: true, reloadAfterSave: false);
         return;
       }
 
-      // 2. الأولوية القصوى: هل يوجد اقتراح مورد مطابق؟
       if (accountTypeValues[rowIndex] == 'مورد' &&
           _supplierSuggestions.isNotEmpty) {
         _selectSupplierSuggestion(_supplierSuggestions[0], rowIndex);
-        // *** إضافة: الحفظ الفوري بعد اختيار الاقتراح ***
         _saveCurrentRecord(silent: true, reloadAfterSave: false);
         return;
       }
 
-      // *** تعديل: المنطق الرئيسي لتحديث الرصيد عند ضغط Enter ***
-      // 3. إذا لم يتم اختيار أي اقتراح، نقوم بالحفظ ثم تحديث شريط الرصيد
       _saveCurrentRecord(silent: true, reloadAfterSave: false).then((_) {
-        // نستدعي هذه الدالة بعد اكتمال الحفظ لضمان قراءة الرصيد المحدث
         if (mounted) {
           _fetchAndCalculateBalance(rowIndex);
         }
@@ -1002,38 +959,15 @@ class _BoxScreenState extends State<BoxScreen> {
         }
       }
 
-      FocusScope.of(context).requestFocus(rowFocusNodes[rowIndex][4]);
-    } else if (colIndex == 4) {
+      FocusScope.of(context).requestFocus(rowFocusNodes[rowIndex][3]);
+    } else if (colIndex == 3) {
+      // ملاحظات
       _addNewRow();
       if (rowControllers.isNotEmpty) {
         final newRowIndex = rowControllers.length - 1;
-        FocusScope.of(context).requestFocus(rowFocusNodes[newRowIndex][1]);
+        FocusScope.of(context).requestFocus(rowFocusNodes[newRowIndex][0]);
       }
     }
-  }
-
-  void _handleFieldChanged(String value, int rowIndex, int colIndex) {
-    if (!_canEditRow(rowIndex)) {
-      return;
-    }
-
-    setState(() {
-      _hasUnsavedChanges = true;
-
-      if (colIndex == 0) {
-        for (int i = 0; i < rowControllers.length; i++) {
-          rowControllers[i][0].text = (i + 1).toString();
-        }
-      }
-
-      if (colIndex == 1 && value.isNotEmpty) {
-        rowControllers[rowIndex][2].text = '';
-        _calculateAllTotals();
-      } else if (colIndex == 2 && value.isNotEmpty) {
-        rowControllers[rowIndex][1].text = '';
-        _calculateAllTotals();
-      }
-    });
   }
 
   void _showAccountTypeDialog(int rowIndex) {
@@ -1097,16 +1031,16 @@ class _BoxScreenState extends State<BoxScreen> {
       _supplierSuggestions = [];
       _activeCustomerRowIndex = null;
       _activeSupplierRowIndex = null;
-    });
 
-    if (value.isNotEmpty) {
-      Future.delayed(const Duration(milliseconds: 150), () {
-        if (mounted) {
-          FocusScope.of(context).requestFocus(rowFocusNodes[rowIndex][3]);
-          _scrollToField(rowIndex, 3);
-        }
-      });
-    }
+      if (value.isNotEmpty) {
+        Future.delayed(const Duration(milliseconds: 150), () {
+          if (mounted) {
+            FocusScope.of(context).requestFocus(rowFocusNodes[rowIndex][2]);
+            _scrollToField(rowIndex, 2);
+          }
+        });
+      }
+    });
   }
 
   void _onAccountTypeCancelled(int rowIndex) {
@@ -1121,101 +1055,92 @@ class _BoxScreenState extends State<BoxScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 300),
-          child:
-              _showFullScreenSuggestions && _getSuggestionsByType().isNotEmpty
-                  ? SuggestionsBanner(
-                      suggestions: _getSuggestionsByType(),
-                      type: _currentSuggestionType,
-                      currentRowIndex: _getCurrentRowIndexByType(),
-                      scrollController: _horizontalSuggestionsController,
-                      onSelect: (val, idx) {
-                        if (_currentSuggestionType == 'customer')
-                          _selectCustomerSuggestion(val, idx);
-                        if (_currentSuggestionType == 'supplier')
-                          _selectSupplierSuggestion(val, idx);
-                      },
-                      onClose: () =>
-                          _toggleFullScreenSuggestions(type: '', show: false),
-                    )
-                  : Row(
+        backgroundColor: const Color.fromARGB(255, 14, 82, 184),
+        foregroundColor: Colors.white,
+        centerTitle: true,
+        titleSpacing: 0,
+
+        // ── Leading: رجوع + PDF ──
+        leadingWidth: 88,
+        leading: Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.start,
+          children: [
+            const SizedBox(width: 4),
+            IconButton(
+              icon: const Icon(Icons.arrow_back, size: 22),
+              onPressed: () => Navigator.pop(context),
+              tooltip: 'رجوع',
+              padding: const EdgeInsets.all(8),
+              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+            ),
+          ],
+        ),
+
+        // ── Title: عنوان + رصيد كلي أو شريط اقتراحات ──
+        title: _showFullScreenSuggestions && _getSuggestionsByType().isNotEmpty
+            ? SuggestionsBanner(
+                suggestions: _getSuggestionsByType(),
+                type: _currentSuggestionType,
+                currentRowIndex: _getCurrentRowIndexByType(),
+                scrollController: _horizontalSuggestionsController,
+                onSelect: (val, idx) {
+                  if (_currentSuggestionType == 'customer')
+                    _selectCustomerSuggestion(val, idx);
+                  if (_currentSuggestionType == 'supplier')
+                    _selectSupplierSuggestion(val, idx);
+                },
+                onClose: () =>
+                    _toggleFullScreenSuggestions(type: '', show: false),
+              )
+            : Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Text(
+                    'الصندوق - ${widget.selectedDate}',
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 16, height: 1.5),
+                    textAlign: TextAlign.center,
+                  ),
+                  Directionality(
+                    textDirection: TextDirection.rtl,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        // شريط الرصيد على اليسار تماماً مثل شريط الاقتراحات
-                        if (_lastFetchedBalance != null &&
-                            _lastAccountName.isNotEmpty)
-                          Padding(
-                            padding: const EdgeInsets.only(right: 8),
-                            child: _buildAppBarBalanceWidget(),
-                          ),
-                        // الجملة تبقى على اليمين
-                        Expanded(
-                          child: Text(
-                            'يومية صندوق رقم /$serialNumber/ تاريخ ${widget.selectedDate} البائع ${widget.sellerName}',
-                            style: const TextStyle(
-                                fontWeight: FontWeight.bold, fontSize: 13),
-                            textAlign: TextAlign.right,
+                        const Text('الرصيد الكلي: ',
+                            style:
+                                TextStyle(fontSize: 16, color: Colors.white70)),
+                        Text(
+                          (_grandTotalReceived - _grandTotalPaid)
+                              .toStringAsFixed(2),
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: (_grandTotalReceived - _grandTotalPaid) >= 0
+                                ? Colors.lightGreenAccent
+                                : Colors.redAccent,
                           ),
                         ),
                       ],
                     ),
-        ),
-        centerTitle: false,
-        backgroundColor: Colors.blue[700],
-        foregroundColor: Colors.white,
+                  ),
+                ],
+              ),
+        // ── Actions: حفظ + تقويم ──
         actions: [
           IconButton(
-            icon: const Icon(Icons.picture_as_pdf),
+            icon: const Icon(Icons.picture_as_pdf, size: 22),
             tooltip: 'تصدير PDF',
             onPressed: () => _generateAndSharePdf(),
-          ),
-          IconButton(
-            icon: _isSaving
-                ? SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                    ),
-                  )
-                : Stack(
-                    children: [
-                      const Icon(Icons.save),
-                      if (_hasUnsavedChanges)
-                        Positioned(
-                          right: 0,
-                          top: 0,
-                          child: Container(
-                            padding: const EdgeInsets.all(2),
-                            decoration: BoxDecoration(
-                              color: Colors.red,
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            constraints: const BoxConstraints(
-                              minWidth: 12,
-                              minHeight: 12,
-                            ),
-                            child: const SizedBox(
-                              width: 8,
-                              height: 8,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-            tooltip: _hasUnsavedChanges
-                ? 'هناك تغييرات غير محفوظة - انقر للحفظ'
-                : 'حفظ اليومية',
-            onPressed: _isSaving
-                ? null
-                : () {
-                    _saveCurrentRecord();
-                  },
+            padding: const EdgeInsets.all(8),
+            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
           ),
           PopupMenuButton<String>(
-            icon: const Icon(Icons.calendar_month),
+            icon: const Icon(Icons.calendar_month, size: 22),
             tooltip: 'فتح يومية سابقة',
+            padding: const EdgeInsets.all(8),
             onSelected: (selectedDate) async {
               if (selectedDate != widget.selectedDate) {
                 if (_hasUnsavedChanges) {
@@ -1224,7 +1149,6 @@ class _BoxScreenState extends State<BoxScreen> {
                     await _saveCurrentRecord(silent: true);
                   }
                 }
-
                 Navigator.pushReplacement(
                   context,
                   MaterialPageRoute(
@@ -1239,62 +1163,51 @@ class _BoxScreenState extends State<BoxScreen> {
             },
             itemBuilder: (BuildContext context) {
               List<PopupMenuEntry<String>> items = [];
-
               if (_isLoadingDates) {
-                items.add(
-                  const PopupMenuItem<String>(
-                    value: '',
-                    enabled: false,
-                    child: Text('جاري التحميل...'),
-                  ),
-                );
+                items.add(const PopupMenuItem<String>(
+                  value: '',
+                  enabled: false,
+                  child: Text('جاري التحميل...'),
+                ));
               } else if (_availableDates.isEmpty) {
-                items.add(
-                  const PopupMenuItem<String>(
-                    value: '',
-                    enabled: false,
-                    child: Text('لا توجد يوميات سابقة'),
-                  ),
-                );
+                items.add(const PopupMenuItem<String>(
+                  value: '',
+                  enabled: false,
+                  child: Text('لا توجد يوميات سابقة'),
+                ));
               } else {
-                items.add(
-                  const PopupMenuItem<String>(
-                    value: '',
-                    enabled: false,
-                    child: Text(
-                      'اليوميات المتاحة',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
+                items.add(const PopupMenuItem<String>(
+                  value: '',
+                  enabled: false,
+                  child: Text(
+                    'اليوميات المتاحة',
+                    style: TextStyle(fontWeight: FontWeight.bold),
                   ),
-                );
+                ));
                 items.add(const PopupMenuDivider());
-
                 for (var dateInfo in _availableDates) {
                   final date = dateInfo['date']!;
-                  final journalNumber = dateInfo['journalNumber']!;
 
-                  items.add(
-                    PopupMenuItem<String>(
-                      value: date,
-                      child: Text(
-                        'يومية رقم $journalNumber - تاريخ $date',
-                        style: TextStyle(
-                          fontWeight: date == widget.selectedDate
-                              ? FontWeight.bold
-                              : FontWeight.normal,
-                          color: date == widget.selectedDate
-                              ? Colors.blue
-                              : Colors.black,
-                        ),
+                  items.add(PopupMenuItem<String>(
+                    value: date,
+                    child: Text(
+                      'يومية تاريخ $date',
+                      style: TextStyle(
+                        fontWeight: date == widget.selectedDate
+                            ? FontWeight.bold
+                            : FontWeight.normal,
+                        color: date == widget.selectedDate
+                            ? Colors.blue
+                            : Colors.black,
                       ),
                     ),
-                  );
+                  ));
                 }
               }
-
               return items;
             },
           ),
+          const SizedBox(width: 4),
         ],
       ),
       body: _buildMainContent(),
@@ -1303,7 +1216,8 @@ class _BoxScreenState extends State<BoxScreen> {
           : Container(
               margin: const EdgeInsets.only(bottom: 16, right: 16),
               child: Material(
-                color: Colors.blue[700],
+                color: const Color.fromARGB(
+                    255, 14, 82, 184), // الحفاظ على اللون الأزرق الحالي
                 borderRadius: BorderRadius.circular(12),
                 elevation: 8,
                 child: InkWell(
@@ -1326,18 +1240,6 @@ class _BoxScreenState extends State<BoxScreen> {
             ),
       floatingActionButtonLocation: FloatingActionButtonLocation.startDocked,
       resizeToAvoidBottomInset: true,
-    );
-  }
-
-  Widget _buildMainContent() {
-    // تم إزالة الشريط الأصفر من هنا لأننا نقلناه إلى الـ AppBar
-    return Column(
-      children: [
-        // الجدول الرئيسي
-        Expanded(
-          child: _buildTableWithStickyHeader(),
-        ),
-      ],
     );
   }
 
@@ -1388,20 +1290,24 @@ class _BoxScreenState extends State<BoxScreen> {
 
     setState(() => _isSaving = true);
 
-    // 1. تجميع السجلات الحالية من الواجهة
     final List<BoxTransaction> allTransFromUI = [];
     for (int i = 0; i < rowControllers.length; i++) {
+      if (i < rowSourceTypes.length &&
+          (rowSourceTypes[i] == 'sales' || rowSourceTypes[i] == 'purchase')) {
+        continue;
+      }
+
       final controllers = rowControllers[i];
-      if (controllers[1].text.isNotEmpty ||
-          controllers[2].text.isNotEmpty ||
-          controllers[3].text.isNotEmpty) {
+      if (controllers[0].text.isNotEmpty ||
+          controllers[1].text.isNotEmpty ||
+          controllers[2].text.isNotEmpty) {
         final t = BoxTransaction(
           serialNumber: (allTransFromUI.length + 1).toString(),
-          received: controllers[1].text,
-          paid: controllers[2].text,
+          received: controllers[0].text,
+          paid: controllers[1].text,
           accountType: accountTypeValues[i],
-          accountName: controllers[3].text.trim(),
-          notes: controllers[4].text,
+          accountName: controllers[2].text.trim(),
+          notes: controllers[3].text,
           sellerName: sellerNames[i],
         );
         allTransFromUI.add(t);
@@ -1423,14 +1329,10 @@ class _BoxScreenState extends State<BoxScreen> {
           double oldPaid = double.tryParse(oldTrans.paid) ?? 0;
 
           if (oldTrans.accountType == 'زبون') {
-            // معادلة الزبون: الرصيد يتأثر بـ (المدفوع له - المقبوض منه)
-            // للإلغاء، نطرح هذا التأثير
             double effect = oldPaid - oldReceived;
             customerBalanceChanges[oldTrans.accountName] =
                 (customerBalanceChanges[oldTrans.accountName] ?? 0) - effect;
           } else if (oldTrans.accountType == 'مورد') {
-            // معادلة المورد: الرصيد يتأثر بـ (المقبوض منه - المدفوع له)
-            // للإلغاء، نطرح هذا التأثير
             double effect = oldReceived - oldPaid;
             supplierBalanceChanges[oldTrans.accountName] =
                 (supplierBalanceChanges[oldTrans.accountName] ?? 0) - effect;
@@ -1467,7 +1369,7 @@ class _BoxScreenState extends State<BoxScreen> {
     final documentToSave = BoxDocument(
       recordNumber: serialNumber,
       date: widget.selectedDate,
-      sellerName: "Multiple Sellers", // الاسم العام للملف
+      sellerName: "Multiple Sellers",
       storeName: widget.storeName,
       dayName: dayName,
       transactions: allTransFromUI,
@@ -1481,7 +1383,6 @@ class _BoxScreenState extends State<BoxScreen> {
     final success = await _storageService.saveBoxDocument(documentToSave);
 
     if (success) {
-      // تطبيق التغييرات الصافية على أرصدة الزبائن والموردين
       for (var entry in customerBalanceChanges.entries) {
         if (entry.value != 0) {
           await _customerIndexService.updateCustomerBalance(
@@ -1552,7 +1453,7 @@ class _BoxScreenState extends State<BoxScreen> {
 
   // تحديث اقتراحات الزبائن
   void _updateCustomerSuggestions(int rowIndex) async {
-    final query = rowControllers[rowIndex][3].text;
+    final query = rowControllers[rowIndex][2].text;
     if (query.length >= 1 && accountTypeValues[rowIndex] == 'زبون') {
       final suggestions =
           await getEnhancedSuggestions(_customerIndexService, query);
@@ -1572,7 +1473,7 @@ class _BoxScreenState extends State<BoxScreen> {
 
 // تحديث اقتراحات الموردين
   void _updateSupplierSuggestions(int rowIndex) async {
-    final query = rowControllers[rowIndex][3].text;
+    final query = rowControllers[rowIndex][2].text;
     if (query.length >= 1 && accountTypeValues[rowIndex] == 'مورد') {
       final suggestions =
           await getEnhancedSuggestions(_supplierIndexService, query);
@@ -1600,20 +1501,22 @@ class _BoxScreenState extends State<BoxScreen> {
       _currentSuggestionType = '';
     });
 
-    // 1. وضع الاسم الكامل في الحقل
-    rowControllers[rowIndex][3].text = suggestion;
+    rowControllers[rowIndex][2].text = suggestion;
     _hasUnsavedChanges = true;
 
+    // تحديث تاريخ البدء إذا كان فارغاً
     if (suggestion.trim().length > 1) {
-      _saveCustomerToIndex(suggestion);
+      _customerIndexService.saveCustomer(
+        suggestion.trim(),
+        startDate: widget.selectedDate,
+      );
     }
 
-    // 2. تحديث شريط الرصيد فوراً بناءً على الاسم الكامل الجديد
     _fetchAndCalculateBalance(rowIndex);
 
     Future.delayed(const Duration(milliseconds: 50), () {
       if (mounted) {
-        FocusScope.of(context).requestFocus(rowFocusNodes[rowIndex][4]);
+        FocusScope.of(context).requestFocus(rowFocusNodes[rowIndex][2]);
       }
     });
   }
@@ -1627,37 +1530,43 @@ class _BoxScreenState extends State<BoxScreen> {
       _currentSuggestionType = '';
     });
 
-    // 1. وضع الاسم الكامل في الحقل
-    rowControllers[rowIndex][3].text = suggestion;
+    rowControllers[rowIndex][2].text = suggestion;
     _hasUnsavedChanges = true;
 
+    // تحديث تاريخ البدء إذا كان فارغاً
     if (suggestion.trim().length > 1) {
-      _saveSupplierToIndex(suggestion);
+      _supplierIndexService.saveSupplier(
+        suggestion.trim(),
+        startDate: widget.selectedDate,
+      );
     }
 
-    // 2. تحديث شريط الرصيد فوراً بناءً على الاسم الكامل الجديد
     _fetchAndCalculateBalance(rowIndex);
 
     Future.delayed(const Duration(milliseconds: 50), () {
       if (mounted) {
-        FocusScope.of(context).requestFocus(rowFocusNodes[rowIndex][4]);
+        FocusScope.of(context).requestFocus(rowFocusNodes[rowIndex][2]);
       }
     });
   }
 
-  // حفظ الزبون في الفهرس
   void _saveCustomerToIndex(String customer) {
     final trimmedCustomer = customer.trim();
     if (trimmedCustomer.length > 1) {
-      _customerIndexService.saveCustomer(trimmedCustomer);
+      _customerIndexService.saveCustomer(
+        trimmedCustomer,
+        startDate: widget.selectedDate,
+      );
     }
   }
 
-  // حفظ المورد في الفهرس
   void _saveSupplierToIndex(String supplier) {
     final trimmedSupplier = supplier.trim();
     if (trimmedSupplier.length > 1) {
-      _supplierIndexService.saveSupplier(trimmedSupplier);
+      _supplierIndexService.saveSupplier(
+        trimmedSupplier,
+        startDate: widget.selectedDate,
+      );
     }
   }
 
@@ -1695,8 +1604,8 @@ class _BoxScreenState extends State<BoxScreen> {
 
 // 1. دالة التحقق من حالة الأدمن (تُستدعى في initState)
   Future<void> _checkAdminStatus() async {
-    final prefs = await SharedPreferences.getInstance();
-    final adminSeller = prefs.getString('admin_seller');
+    final settings = AppSettingsService();
+    final adminSeller = await settings.getString('admin_seller');
     if (mounted) {
       setState(() {
         _isAdmin = (widget.sellerName == adminSeller);
@@ -1717,13 +1626,12 @@ class _BoxScreenState extends State<BoxScreen> {
 
   Future<void> _fetchAndCalculateBalance(int rowIndex) async {
     final String type = accountTypeValues[rowIndex];
-    final String name = rowControllers[rowIndex][3].text.trim();
+    final String name = rowControllers[rowIndex][2].text.trim(); // index 2
 
-    // القيم الحالية للصف الذي نعمل عليه (آخر عملية إدخال)
     final double currentReceived =
-        double.tryParse(rowControllers[rowIndex][1].text) ?? 0;
+        double.tryParse(rowControllers[rowIndex][0].text) ?? 0;
     final double currentPaid =
-        double.tryParse(rowControllers[rowIndex][2].text) ?? 0;
+        double.tryParse(rowControllers[rowIndex][1].text) ?? 0;
 
     if (name.isEmpty) {
       return;
@@ -1737,14 +1645,13 @@ class _BoxScreenState extends State<BoxScreen> {
         final customers = await _customerIndexService.getAllCustomersWithData();
         final customerData = customers.values.firstWhere(
           (c) => c.name.toLowerCase() == name.toLowerCase(),
-          orElse: () => CustomerData(name: name, balance: 0.0),
+          orElse: () => CustomerData(name: name, balance: 0.0, startDate: ''),
         );
         realBalance = customerData.balance;
       } else if (type == 'مورد') {
         final supplierData = await _supplierIndexService.getSupplierData(name);
         realBalance = supplierData?.balance ?? 0.0;
       } else {
-        // نوع الحساب "مصروف" - نبقي الشريط معروضاً
         return;
       }
 
@@ -1772,74 +1679,99 @@ class _BoxScreenState extends State<BoxScreen> {
     }
   }
 
-  Widget _buildAppBarBalanceWidget() {
+  Widget _buildBalanceBar() {
+    if (_lastFetchedBalance == null || _lastAccountName.isEmpty) {
+      return const SizedBox.shrink();
+    }
     return Container(
-      height: 48,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.2),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // اسم الحساب
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Text(
-                'الحساب',
-                style: TextStyle(fontSize: 10, color: Colors.white70),
-              ),
-              Text(
-                _lastAccountName.length > 12
-                    ? '${_lastAccountName.substring(0, 12)}...'
-                    : _lastAccountName,
-                style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white),
-              ),
-            ],
-          ),
-          const SizedBox(width: 12),
-          // الرصيد الحالي
-          Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Text('الرصيد',
-                  style: TextStyle(fontSize: 10, color: Colors.white70)),
-              Text(
-                _lastFetchedBalance?.toStringAsFixed(2) ?? '0.00',
-                style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white),
-              ),
-            ],
-          ),
-          const SizedBox(width: 12),
-          // الباقي المتوقع
-          Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Text('الباقي',
-                  style: TextStyle(fontSize: 10, color: Colors.white70)),
-              Text(
-                _calculatedRemaining?.toStringAsFixed(2) ?? '0.00',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: (_calculatedRemaining ?? 0) >= 0
-                      ? Colors.lightGreenAccent
-                      : Colors.redAccent,
-                ),
-              ),
-            ],
+        color: Colors.blue[900],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
+      child: Directionality(
+        textDirection: TextDirection.rtl,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            // اسم الحساب
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'الحساب',
+                  style: TextStyle(fontSize: 16, color: Colors.white70),
+                ),
+                Text(
+                  _lastAccountName.length > 14
+                      ? '${_lastAccountName.substring(0, 14)}...'
+                      : _lastAccountName,
+                  style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white),
+                ),
+              ],
+            ),
+            Container(width: 1, height: 30, color: Colors.white24),
+            // الرصيد الحالي
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('الرصيد',
+                    style: TextStyle(fontSize: 16, color: Colors.white70)),
+                Text(
+                  _lastFetchedBalance?.toStringAsFixed(2) ?? '0.00',
+                  style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white),
+                ),
+              ],
+            ),
+            Container(width: 1, height: 30, color: Colors.white24),
+            // الباقي المتوقع
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('الباقي',
+                    style: TextStyle(fontSize: 16, color: Colors.white70)),
+                Text(
+                  _calculatedRemaining?.toStringAsFixed(2) ?? '0.00',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: (_calculatedRemaining ?? 0) >= 0
+                        ? Colors.lightGreenAccent
+                        : Colors.redAccent,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMainContent() {
+    return Column(
+      children: [
+        // مستطيل الرصيد مباشرةً تحت الـ AppBar
+        _buildBalanceBar(),
+        // الجدول الرئيسي
+        Expanded(
+          child: _buildTableWithStickyHeader(),
+        ),
+      ],
     );
   }
 
@@ -1857,10 +1789,10 @@ class _BoxScreenState extends State<BoxScreen> {
         arabicFont = pw.Font.courier();
       }
 
-      final PdfColor headerColor = PdfColor.fromInt(0xFF1976D2);
+      final PdfColor headerColor = PdfColor.fromInt(0xFFF3A30D);
       final PdfColor headerTextColor = PdfColors.white;
       final PdfColor rowEvenColor = PdfColors.white;
-      final PdfColor rowOddColor = PdfColor.fromInt(0xFFBBDEFB);
+      final PdfColor rowOddColor = PdfColor.fromInt(0xFFFFF3E0);
       final PdfColor borderColor = PdfColor.fromInt(0xFFE0E0E0);
 
       pdf.addPage(
@@ -1882,17 +1814,16 @@ class _BoxScreenState extends State<BoxScreen> {
                         child: pw.Text(
                             'تاريخ ${widget.selectedDate} - البائع ${widget.sellerName}',
                             style: const pw.TextStyle(
-                                fontSize: 12, color: PdfColors.grey700))),
+                                fontSize: 16, color: PdfColors.grey700))),
                     pw.SizedBox(height: 10),
                     pw.Table(
                       border:
                           pw.TableBorder.all(color: borderColor, width: 0.5),
                       columnWidths: {
-                        0: const pw.FlexColumnWidth(2),
-                        1: const pw.FlexColumnWidth(4),
-                        2: const pw.FlexColumnWidth(2),
-                        3: const pw.FlexColumnWidth(2),
-                        4: const pw.FlexColumnWidth(1),
+                        0: const pw.FlexColumnWidth(3), // ملاحظات
+                        1: const pw.FlexColumnWidth(4), // الحساب
+                        2: const pw.FlexColumnWidth(2), // مدفوع
+                        3: const pw.FlexColumnWidth(2), // مقبوض
                       },
                       children: [
                         pw.TableRow(
@@ -1902,21 +1833,20 @@ class _BoxScreenState extends State<BoxScreen> {
                             _buildPdfHeaderCell('الحساب', headerTextColor),
                             _buildPdfHeaderCell('مدفوع', headerTextColor),
                             _buildPdfHeaderCell('مقبوض', headerTextColor),
-                            _buildPdfHeaderCell('ت', headerTextColor),
                           ],
                         ),
                         ...rowControllers.asMap().entries.map((entry) {
                           final index = entry.key;
                           final controllers = entry.value;
-                          if (controllers[1].text.isEmpty &&
-                              controllers[2].text.isEmpty &&
-                              controllers[3].text.isEmpty) {
+                          if (controllers[0].text.isEmpty &&
+                              controllers[1].text.isEmpty &&
+                              controllers[2].text.isEmpty) {
                             return pw.TableRow(
-                                children: List.filled(5, pw.SizedBox()));
+                                children: List.filled(4, pw.SizedBox()));
                           }
                           final color =
                               index % 2 == 0 ? rowEvenColor : rowOddColor;
-                          String accountInfo = controllers[3].text;
+                          String accountInfo = controllers[2].text;
                           if (accountTypeValues[index].isNotEmpty) {
                             accountInfo =
                                 "(${accountTypeValues[index]}) " + accountInfo;
@@ -1924,9 +1854,8 @@ class _BoxScreenState extends State<BoxScreen> {
                           return pw.TableRow(
                             decoration: pw.BoxDecoration(color: color),
                             children: [
-                              _buildPdfCell(controllers[4].text),
+                              _buildPdfCell(controllers[3].text),
                               _buildPdfCell(accountInfo),
-                              _buildPdfCell(controllers[2].text),
                               _buildPdfCell(controllers[1].text),
                               _buildPdfCell(controllers[0].text),
                             ],
@@ -1942,7 +1871,6 @@ class _BoxScreenState extends State<BoxScreen> {
                                 isBold: true),
                             _buildPdfCell(totalReceivedController.text,
                                 isBold: true),
-                            _buildPdfCell(''),
                           ],
                         ),
                       ],
@@ -1956,7 +1884,6 @@ class _BoxScreenState extends State<BoxScreen> {
       );
 
       final output = await getTemporaryDirectory();
-      // *** التعديل الهام هنا: استبدال / بـ - لضمان صحة اسم الملف ***
       final safeDate = widget.selectedDate.replaceAll('/', '-');
       final file = File("${output.path}/يومية_صندوق_$safeDate.pdf");
 
@@ -1980,7 +1907,7 @@ class _BoxScreenState extends State<BoxScreen> {
       child: pw.Text(text,
           textAlign: pw.TextAlign.center,
           style: pw.TextStyle(
-              color: color, fontSize: 10, fontWeight: pw.FontWeight.bold)),
+              color: color, fontSize: 16, fontWeight: pw.FontWeight.bold)),
     );
   }
 
@@ -1991,9 +1918,93 @@ class _BoxScreenState extends State<BoxScreen> {
       child: pw.Text(text,
           textAlign: pw.TextAlign.center,
           style: pw.TextStyle(
-              fontSize: 10,
+              fontSize: 16,
               fontWeight: isBold ? pw.FontWeight.bold : pw.FontWeight.normal)),
     );
+  }
+
+  /// جلب السجلات النقدية من يوميات المبيعات والمشتريات وعرضها في الصندوق للقراءة فقط
+  Future<void> _loadCashTransactionsFromOtherJournals() async {
+    final salesService = SalesStorageService();
+    final purchaseService = PurchaseStorageService();
+
+    final salesDoc = await salesService.loadSalesDocument(widget.selectedDate);
+    final purchaseDoc =
+        await purchaseService.loadPurchaseDocument(widget.selectedDate);
+
+    if (!mounted) return;
+
+    setState(() {
+      // إزالة الصفوف المستوردة السابقة لتجنب التكرار
+      for (int i = rowControllers.length - 1; i >= 0; i--) {
+        if (i < rowSourceTypes.length &&
+            (rowSourceTypes[i] == 'sales' || rowSourceTypes[i] == 'purchase')) {
+          for (var c in rowControllers[i]) c.dispose();
+          for (var n in rowFocusNodes[i]) n.dispose();
+          rowControllers.removeAt(i);
+          rowFocusNodes.removeAt(i);
+          accountTypeValues.removeAt(i);
+          sellerNames.removeAt(i);
+          rowSourceTypes.removeAt(i);
+        }
+      }
+
+      // ── المبيعات النقدية ──
+      if (salesDoc != null) {
+        for (var sale in salesDoc.sales) {
+          if (sale.cashOrDebt == 'نقدي') {
+            // في النقدي: customerName يكون null دائماً
+            // نستخدم affiliation (الانتماء/الزبون) كاسم الحساب
+            final String accountName = (sale.affiliation.trim().isNotEmpty)
+                ? sale.affiliation.trim()
+                : 'مبيعات نقدية';
+
+            // [0]=مقبوض، [1]=مدفوع، [2]=الحساب، [3]=ملاحظات
+            final controllers = [
+              TextEditingController(text: sale.total), // [0] مقبوض
+              TextEditingController(text: ''), // [1] مدفوع
+              TextEditingController(text: accountName), // [2] الحساب
+              TextEditingController(text: 'مبيعات نقدية'), // [3] ملاحظات
+            ];
+            final focusNodes = List.generate(4, (_) => FocusNode());
+            rowControllers.add(controllers);
+            rowFocusNodes.add(focusNodes);
+            accountTypeValues.add('زبون');
+            sellerNames.add(sale.sellerName);
+            rowSourceTypes.add('sales');
+          }
+        }
+      }
+
+      // ── المشتريات النقدية ──
+      if (purchaseDoc != null) {
+        for (var purchase in purchaseDoc.purchases) {
+          if (purchase.cashOrDebt == 'نقدي') {
+            // اسم المورد مخزن في حقل affiliation وليس sellerName
+            // sellerName = اسم الموظف/البائع، affiliation = اسم المورد
+            final String accountName = purchase.affiliation.trim().isNotEmpty
+                ? purchase.affiliation.trim()
+                : 'مشتريات نقدية';
+
+            // [0]=مقبوض، [1]=مدفوع، [2]=الحساب، [3]=ملاحظات
+            final controllers = [
+              TextEditingController(text: ''), // [0] مقبوض
+              TextEditingController(text: purchase.total), // [1] مدفوع
+              TextEditingController(text: accountName), // [2] الحساب
+              TextEditingController(text: 'مشتريات نقدية'), // [3] ملاحظات
+            ];
+            final focusNodes = List.generate(4, (_) => FocusNode());
+            rowControllers.add(controllers);
+            rowFocusNodes.add(focusNodes);
+            accountTypeValues.add('مورد');
+            sellerNames.add(purchase.sellerName);
+            rowSourceTypes.add('purchase');
+          }
+        }
+      }
+
+      _calculateAllTotals();
+    });
   }
 }
 
