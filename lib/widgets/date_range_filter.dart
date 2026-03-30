@@ -396,8 +396,8 @@ class FilterChipWidget extends StatelessWidget {
                 '${from != null ? '${from!.year}/${from!.month}/${from!.day}' : '—'}'
                 ' ← '
                 '${to != null ? '${to!.year}/${to!.month}/${to!.day}' : '—'}',
-                style:
-                    TextStyle(color: color, fontSize: 18), // Increased from 12
+                style: TextStyle(
+                    color: Colors.black, fontSize: 18), // Increased from 12
               ),
             ),
             GestureDetector(
