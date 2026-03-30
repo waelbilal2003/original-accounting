@@ -220,7 +220,7 @@ class _SupplierPreferencesScreenState extends State<SupplierPreferencesScreen> {
                       child: pw.Text(
                         filterDesc,
                         style: const pw.TextStyle(
-                            fontSize: 12, color: PdfColors.grey700),
+                            fontSize: 16, color: PdfColors.grey700),
                       ),
                     ),
                     pw.SizedBox(height: 14),
@@ -251,7 +251,7 @@ class _SupplierPreferencesScreenState extends State<SupplierPreferencesScreen> {
                       children: [
                         pw.Text('السجلات',
                             style: pw.TextStyle(
-                                fontSize: 13, fontWeight: pw.FontWeight.bold)),
+                                fontSize: 16, fontWeight: pw.FontWeight.bold)),
                         pw.Container(
                           padding: const pw.EdgeInsets.symmetric(
                               horizontal: 10, vertical: 4),
@@ -263,7 +263,7 @@ class _SupplierPreferencesScreenState extends State<SupplierPreferencesScreen> {
                             'المجموع: $totalStr',
                             style: pw.TextStyle(
                                 color: PdfColors.white,
-                                fontSize: 11,
+                                fontSize: 16,
                                 fontWeight: pw.FontWeight.bold),
                           ),
                         ),
@@ -363,8 +363,8 @@ class _SupplierPreferencesScreenState extends State<SupplierPreferencesScreen> {
         children: [
           pw.Text('$label: ',
               style:
-                  pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11)),
-          pw.Text(value, style: const pw.TextStyle(fontSize: 11)),
+                  pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 16)),
+          pw.Text(value, style: const pw.TextStyle(fontSize: 16)),
         ],
       ),
     );
@@ -377,7 +377,7 @@ class _SupplierPreferencesScreenState extends State<SupplierPreferencesScreen> {
       child: pw.Text(text,
           textAlign: pw.TextAlign.center,
           style: pw.TextStyle(
-              color: color, fontSize: 10, fontWeight: pw.FontWeight.bold)),
+              color: color, fontSize: 16, fontWeight: pw.FontWeight.bold)),
     );
   }
 
@@ -388,7 +388,7 @@ class _SupplierPreferencesScreenState extends State<SupplierPreferencesScreen> {
       child: pw.Text(text,
           textAlign: pw.TextAlign.center,
           style: pw.TextStyle(
-              fontSize: 10,
+              fontSize: 16,
               fontWeight: isBold ? pw.FontWeight.bold : pw.FontWeight.normal)),
     );
   }
@@ -503,7 +503,7 @@ class _SupplierPreferencesScreenState extends State<SupplierPreferencesScreen> {
                                     'المجموع: ${totalVisible.toStringAsFixed(2).replaceAll(RegExp(r'\.00$'), '')}',
                                     style: const TextStyle(
                                         color: Colors.white,
-                                        fontSize: 12,
+                                        fontSize: 16,
                                         fontWeight: FontWeight.bold),
                                   ),
                                 ),
@@ -534,14 +534,14 @@ class _SupplierPreferencesScreenState extends State<SupplierPreferencesScreen> {
                                           child: Text('التاريخ',
                                               style: TextStyle(
                                                   fontWeight: FontWeight.bold,
-                                                  fontSize: 12),
+                                                  fontSize: 16),
                                               textAlign: TextAlign.center)),
                                       Padding(
                                           padding: EdgeInsets.all(6),
                                           child: Text('المبلغ',
                                               style: TextStyle(
                                                   fontWeight: FontWeight.bold,
-                                                  fontSize: 12),
+                                                  fontSize: 16),
                                               textAlign: TextAlign.center)),
                                       Padding(
                                           padding: EdgeInsets.all(6),
@@ -555,7 +555,7 @@ class _SupplierPreferencesScreenState extends State<SupplierPreferencesScreen> {
                                           child: Text('البيان',
                                               style: TextStyle(
                                                   fontWeight: FontWeight.bold,
-                                                  fontSize: 12),
+                                                  fontSize: 16),
                                               textAlign: TextAlign.center)),
                                     ],
                                   ),
@@ -573,13 +573,13 @@ class _SupplierPreferencesScreenState extends State<SupplierPreferencesScreen> {
                                             padding: const EdgeInsets.all(6),
                                             child: Text(p['date'] ?? '',
                                                 style: const TextStyle(
-                                                    fontSize: 9),
+                                                    fontSize: 16),
                                                 textAlign: TextAlign.center)),
                                         Padding(
                                             padding: const EdgeInsets.all(6),
                                             child: Text(p['value'] ?? '',
                                                 style: const TextStyle(
-                                                    fontSize: 10,
+                                                    fontSize: 16,
                                                     fontWeight:
                                                         FontWeight.bold),
                                                 textAlign: TextAlign.center)),
@@ -604,7 +604,7 @@ class _SupplierPreferencesScreenState extends State<SupplierPreferencesScreen> {
                                                       ? 'مدفوع'
                                                       : 'مشتريات',
                                               style: TextStyle(
-                                                  fontSize: 10,
+                                                  fontSize: 16,
                                                   color: isBoxReceived
                                                       ? Colors.blue[800]
                                                       : isBox
@@ -619,7 +619,7 @@ class _SupplierPreferencesScreenState extends State<SupplierPreferencesScreen> {
                                             padding: const EdgeInsets.all(6),
                                             child: Text(p['notes'] ?? '',
                                                 style: const TextStyle(
-                                                    fontSize: 11),
+                                                    fontSize: 16),
                                                 textAlign: TextAlign.center)),
                                       ],
                                     );
@@ -646,10 +646,10 @@ class _SupplierPreferencesScreenState extends State<SupplierPreferencesScreen> {
           const SizedBox(width: 10),
           Text('$label: ',
               style:
-                  const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           Expanded(
             child: Text(value,
-                style: const TextStyle(fontSize: 14),
+                style: const TextStyle(fontSize: 16),
                 textAlign: TextAlign.left),
           ),
         ],

@@ -275,7 +275,7 @@ class __DateRangeDialogState extends State<_DateRangeDialog> {
         title: Row(
           children: [
             Icon(Icons.date_range,
-                color: widget.color, size: 27), // Increased from 18
+                color: Colors.black, size: 27), // Increased from 18
             const SizedBox(width: 12), // Increased from 8
             const Text('فلترة بالتاريخ',
                 style: TextStyle(
@@ -294,7 +294,7 @@ class __DateRangeDialogState extends State<_DateRangeDialog> {
                   child: datePicker(
                     sectionLabel: 'من تاريخ',
                     date: tempFrom,
-                    color: widget.color,
+                    color: Colors.black,
                     onChanged: (d) => setState(() => tempFrom = d),
                   ),
                 ),
@@ -303,7 +303,7 @@ class __DateRangeDialogState extends State<_DateRangeDialog> {
                   child: datePicker(
                     sectionLabel: 'إلى تاريخ',
                     date: tempTo,
-                    color: widget.color,
+                    color: Colors.black,
                     onChanged: (d) => setState(() => tempTo = d),
                   ),
                 ),
@@ -350,7 +350,8 @@ class __DateRangeDialogState extends State<_DateRangeDialog> {
               widget.onApply(tempFrom, tempTo);
               Navigator.pop(context);
             },
-            child: const Text('تطبيق', style: TextStyle(color: Colors.white)),
+            child: const Text('تطبيق',
+                style: TextStyle(color: Color.fromARGB(255, 231, 9, 9))),
           ),
         ],
       ),

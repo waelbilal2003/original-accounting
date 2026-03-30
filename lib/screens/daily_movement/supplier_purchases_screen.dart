@@ -381,7 +381,7 @@ class _SupplierPurchasesScreenState extends State<SupplierPurchasesScreen> {
               });
               _loadItems();
             },
-            color: Colors.red,
+            color: Colors.white,
           ),
           IconButton(
             icon: const Icon(Icons.picture_as_pdf),

@@ -406,7 +406,7 @@ class _OpeningBalancesScreenState extends State<OpeningBalancesScreen> {
                 style: TextStyle(
                   color: isActive ? Colors.white : Colors.deepOrange[700],
                   fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-                  fontSize: 13,
+                  fontSize: 16,
                 ),
               ),
             ],
@@ -441,7 +441,7 @@ class _OpeningBalancesScreenState extends State<OpeningBalancesScreen> {
                 ? 'تم حفظ الأرصدة مسبقاً — يمكنك تعديلها وإعادة الحفظ'
                 : 'أدخل أرصدة البداية مرة واحدة — ستبقى ثابتة',
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+            style: TextStyle(fontSize: 16, color: Colors.grey[600]),
           ),
           const SizedBox(height: 40),
           Text('رصيد الصندوق الابتدائي',
@@ -531,7 +531,7 @@ class _OpeningBalancesScreenState extends State<OpeningBalancesScreen> {
                     style: TextStyle(
                         color: Colors.green[800],
                         fontWeight: FontWeight.bold,
-                        fontSize: 13),
+                        fontSize: 16),
                   ),
                 ],
               ),
@@ -571,13 +571,13 @@ class _OpeningBalancesScreenState extends State<OpeningBalancesScreen> {
                     children: [
                       const Text('المجموع: ',
                           style: TextStyle(
-                              fontSize: 14,
+                              fontSize: 16,
                               fontWeight: FontWeight.bold,
                               color: Colors.teal)),
                       Text(
                         totalBalance.toStringAsFixed(2),
                         style: const TextStyle(
-                            fontSize: 15,
+                            fontSize: 16,
                             fontWeight: FontWeight.bold,
                             color: Colors.black87),
                       ),
@@ -611,24 +611,24 @@ class _OpeningBalancesScreenState extends State<OpeningBalancesScreen> {
                   flex: 2,
                   child: Text('الاسم',
                       style: TextStyle(
-                          fontWeight: FontWeight.bold, fontSize: 11))),
+                          fontWeight: FontWeight.bold, fontSize: 16))),
               Expanded(
                   flex: 3,
                   child: Text('الرصيد',
                       style:
-                          TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+                          TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                       textAlign: TextAlign.center)),
               Expanded(
                   flex: 3,
                   child: Text('الموبايل',
                       style:
-                          TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+                          TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                       textAlign: TextAlign.center)),
               Expanded(
                   flex: 2,
                   child: Text('تاريخ البدء',
                       style:
-                          TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+                          TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                       textAlign: TextAlign.center)),
               SizedBox(width: 30),
             ],
@@ -653,7 +653,7 @@ class _OpeningBalancesScreenState extends State<OpeningBalancesScreen> {
                           Expanded(
                               flex: 2,
                               child: Text(customer.name,
-                                  style: const TextStyle(fontSize: 13))),
+                                  style: const TextStyle(fontSize: 16))),
                           Expanded(
                               flex: 3,
                               child: _buildEditableCell(
@@ -695,7 +695,7 @@ class _OpeningBalancesScreenState extends State<OpeningBalancesScreen> {
                               child: Center(
                                   child: Text(customer.startDate,
                                       style: const TextStyle(
-                                          fontSize: 10, color: Colors.black)))),
+                                          fontSize: 16, color: Colors.black)))),
                           SizedBox(
                             width: 30,
                             child: IconButton(
@@ -744,13 +744,13 @@ class _OpeningBalancesScreenState extends State<OpeningBalancesScreen> {
                     children: [
                       const Text('المجموع: ',
                           style: TextStyle(
-                              fontSize: 14,
+                              fontSize: 16,
                               fontWeight: FontWeight.bold,
                               color: Colors.brown)),
                       Text(
                         totalBalance.toStringAsFixed(2),
                         style: const TextStyle(
-                            fontSize: 15,
+                            fontSize: 16,
                             fontWeight: FontWeight.bold,
                             color: Colors.black87),
                       ),
@@ -784,24 +784,24 @@ class _OpeningBalancesScreenState extends State<OpeningBalancesScreen> {
                   flex: 2,
                   child: Text('الاسم',
                       style: TextStyle(
-                          fontWeight: FontWeight.bold, fontSize: 11))),
+                          fontWeight: FontWeight.bold, fontSize: 16))),
               Expanded(
                   flex: 3,
                   child: Text('الرصيد',
                       style:
-                          TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+                          TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                       textAlign: TextAlign.center)),
               Expanded(
                   flex: 3,
                   child: Text('الموبايل',
                       style:
-                          TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+                          TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                       textAlign: TextAlign.center)),
               Expanded(
                   flex: 2,
                   child: Text('تاريخ البدء',
                       style:
-                          TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+                          TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                       textAlign: TextAlign.center)),
               SizedBox(width: 30),
             ],
@@ -826,7 +826,7 @@ class _OpeningBalancesScreenState extends State<OpeningBalancesScreen> {
                           Expanded(
                               flex: 2,
                               child: Text(supplier.name,
-                                  style: const TextStyle(fontSize: 13))),
+                                  style: const TextStyle(fontSize: 16))),
                           Expanded(
                               flex: 3,
                               child: _buildEditableCell(
@@ -868,7 +868,7 @@ class _OpeningBalancesScreenState extends State<OpeningBalancesScreen> {
                               child: Center(
                                   child: Text(supplier.startDate,
                                       style: const TextStyle(
-                                          fontSize: 10, color: Colors.black)))),
+                                          fontSize: 16, color: Colors.black)))),
                           SizedBox(
                             width: 30,
                             child: IconButton(
@@ -903,7 +903,7 @@ class _OpeningBalancesScreenState extends State<OpeningBalancesScreen> {
         controller: controller,
         focusNode: focusNode,
         textAlign: TextAlign.center,
-        style: const TextStyle(fontSize: 13),
+        style: const TextStyle(fontSize: 16),
         keyboardType: isNumeric
             ? const TextInputType.numberWithOptions(decimal: true)
             : TextInputType.text,

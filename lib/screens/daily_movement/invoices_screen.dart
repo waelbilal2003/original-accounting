@@ -385,7 +385,7 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
               });
               _loadItems();
             },
-            color: Colors.indigo,
+            color: Colors.white,
           ),
           IconButton(
             icon: const Icon(Icons.picture_as_pdf),
