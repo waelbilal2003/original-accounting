@@ -113,8 +113,12 @@ class _SupplierSelectionScreenState extends State<SupplierSelectionScreen> {
                     itemBuilder: (context, index) {
                       final supplierName = _filteredSuppliers[index];
                       return ListTile(
-                        title: Text(supplierName,
-                            style: const TextStyle(fontSize: 18)),
+                        title: Text(
+                          supplierName,
+                          style: const TextStyle(
+                              fontSize: 18,
+                              color: Colors.black), // ✅ إضافة اللون الأسود
+                        ),
                         leading: Icon(
                           Icons.local_shipping,
                           color: widget.reportType == 'purchases'

@@ -1,4 +1,3 @@
-// widgets/common_dialogs.dart
 import 'package:flutter/material.dart';
 
 // نافذة اختيار طريقة الدفع
@@ -13,13 +12,20 @@ void showCashOrDebtDialog({
     context: context,
     builder: (BuildContext context) {
       return AlertDialog(
-        title: const Text('اختر طريقة الدفع'),
+        title: const Text(
+          'اختر طريقة الدفع',
+          style: TextStyle(color: Colors.black),
+        ),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: options.map((option) {
               return ListTile(
-                title: Text(option),
+                title: Text(
+                  option,
+                  style: const TextStyle(
+                      color: Colors.black), // ✅ إضافة اللون الأسود
+                ),
                 leading: Radio<String>(
                   value: option,
                   groupValue: currentValue,
@@ -44,7 +50,8 @@ void showCashOrDebtDialog({
               onCancel();
               Navigator.of(context).pop();
             },
-            child: const Text('إلغاء'),
+            child: const Text('إلغاء',
+                style: TextStyle(color: Colors.black)), // ✅ إضافة اللون الأسود
           ),
         ],
       );
@@ -52,7 +59,7 @@ void showCashOrDebtDialog({
   );
 }
 
-// أضف هذه الدالة في ملف common_dialogs.dart
+// نافذة اختيار نوع الحساب
 Future<void> showAccountTypeDialog({
   required BuildContext context,
   required String currentValue,
@@ -67,7 +74,9 @@ Future<void> showAccountTypeDialog({
       return AlertDialog(
         title: const Text(
           'اختر نوع الحساب',
-          style: TextStyle(fontWeight: FontWeight.bold),
+          style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: Colors.black), // ✅ إضافة اللون الأسود
           textAlign: TextAlign.center,
         ),
         content: SingleChildScrollView(
@@ -84,8 +93,9 @@ Future<void> showAccountTypeDialog({
                       fontWeight: option == currentValue
                           ? FontWeight.bold
                           : FontWeight.normal,
-                      color:
-                          option == currentValue ? Colors.blue : Colors.black,
+                      color: option == currentValue
+                          ? Colors.blue
+                          : Colors.black, // ✅ تعديل اللون
                     ),
                   ),
                   onTap: () {
@@ -103,7 +113,8 @@ Future<void> showAccountTypeDialog({
               Navigator.pop(context);
               onCancel();
             },
-            child: const Text('إلغاء'),
+            child: const Text('إلغاء',
+                style: TextStyle(color: Colors.black)), // ✅ إضافة اللون الأسود
           ),
         ],
       );
@@ -126,13 +137,20 @@ void showEmptiesDialog({
       return StatefulBuilder(
         builder: (context, setState) {
           return AlertDialog(
-            title: const Text('اختر حالة الفوارغ'),
+            title: const Text(
+              'اختر حالة الفوارغ',
+              style: TextStyle(color: Colors.black), // ✅ إضافة اللون الأسود
+            ),
             content: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: options.map((option) {
                   return ListTile(
-                    title: Text(option),
+                    title: Text(
+                      option,
+                      style: const TextStyle(
+                          color: Colors.black), // ✅ إضافة اللون الأسود
+                    ),
                     leading: Radio<String>(
                       value: option,
                       groupValue: tempValue,
@@ -163,7 +181,9 @@ void showEmptiesDialog({
                   onCancel();
                   Navigator.of(context).pop();
                 },
-                child: const Text('إلغاء'),
+                child: const Text('إلغاء',
+                    style:
+                        TextStyle(color: Colors.black)), // ✅ إضافة اللون الأسود
               ),
             ],
           );
@@ -173,7 +193,7 @@ void showEmptiesDialog({
   );
 }
 
-// نافذة مشاركة الملف
+// باقي الدوال كما هي...
 void showFilePathDialog({
   required BuildContext context,
   required String filePath,
@@ -181,12 +201,13 @@ void showFilePathDialog({
   showDialog(
     context: context,
     builder: (context) => AlertDialog(
-      title: const Text('مسار الملف'),
+      title: const Text('مسار الملف', style: TextStyle(color: Colors.black)),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('يمكنك نسخ المسار أدناه:'),
+          const Text('يمكنك نسخ المسار أدناه:',
+              style: TextStyle(color: Colors.black)),
           const SizedBox(height: 8),
           SelectableText(
             filePath,
@@ -202,14 +223,13 @@ void showFilePathDialog({
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('موافق'),
+          child: const Text('موافق', style: TextStyle(color: Colors.black)),
         ),
       ],
     ),
   );
 }
 
-// نافذة تأكيد الحذف
 Future<bool?> showDeleteConfirmationDialog({
   required BuildContext context,
   required String recordNumber,
@@ -217,12 +237,13 @@ Future<bool?> showDeleteConfirmationDialog({
   return showDialog<bool>(
     context: context,
     builder: (context) => AlertDialog(
-      title: const Text('تأكيد الحذف'),
-      content: Text('هل تريد حذف السجل رقم $recordNumber؟'),
+      title: const Text('تأكيد الحذف', style: TextStyle(color: Colors.black)),
+      content: Text('هل تريد حذف السجل رقم $recordNumber؟',
+          style: const TextStyle(color: Colors.black)),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context, false),
-          child: const Text('إلغاء'),
+          child: const Text('إلغاء', style: TextStyle(color: Colors.black)),
         ),
         TextButton(
           onPressed: () => Navigator.pop(context, true),

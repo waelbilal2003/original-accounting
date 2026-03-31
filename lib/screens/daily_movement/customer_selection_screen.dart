@@ -110,8 +110,11 @@ class _CustomerSelectionScreenState extends State<CustomerSelectionScreen> {
                     itemBuilder: (context, index) {
                       final customerName = _filteredCustomers[index];
                       return ListTile(
-                        title: Text(customerName,
-                            style: const TextStyle(fontSize: 18)),
+                        title: Text(
+                          customerName,
+                          style: const TextStyle(
+                              fontSize: 18, color: Colors.black),
+                        ),
                         leading: const Icon(Icons.person, color: Colors.indigo),
                         onTap: () {
                           // إخفاء لوحة المفاتيح عند الانتقال
