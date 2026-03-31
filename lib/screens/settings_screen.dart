@@ -5,41 +5,59 @@ import '../services/material_index_service.dart';
 import '../services/packaging_index_service.dart';
 
 class SettingsScreen extends StatefulWidget {
-  final String selectedDate;
-  final String storeName; // إضافة متغير storeName
+  final String? selectedDate;
+  final String? storeName;
 
-  const SettingsScreen(
-      {super.key, required this.selectedDate, required this.storeName});
+  const SettingsScreen({
+    super.key,
+    this.selectedDate,
+    this.storeName,
+  });
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  // خدمات الفهارس
   final MaterialIndexService _materialIndexService = MaterialIndexService();
   final PackagingIndexService _packagingIndexService = PackagingIndexService();
 
-  // قوائم البيانات
   Map<int, String> _materialsWithNumbers = {};
   Map<int, String> _packagingsWithNumbers = {};
 
-  // متغيرات لعرض القوائم
   bool _showMaterialList = false;
   bool _showPackagingList = false;
 
-  // متغيرات للتحكم في التعديل والإضافة
   TextEditingController _addItemController = TextEditingController();
   FocusNode _addItemFocusNode = FocusNode();
   Map<String, TextEditingController> _itemControllers = {};
   Map<String, FocusNode> _itemFocusNodes = {};
   bool _isAddingNewItem = false;
 
+  // متغيرات إعدادات حجم الخط والأيقونة
+  double _fontScalePercent = 0.0; // 0 = 0% زيادة (الحجم الأصلي)
+  double _iconScalePercent = 0.0; // 0 = 0% زيادة
+
   @override
   void initState() {
     super.initState();
     _loadMaterials();
     _loadPackagings();
+    _loadFontIconSettings();
+  }
+
+  Future<void> _loadFontIconSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _fontScalePercent = prefs.getDouble('font_scale_percent') ?? 0.0;
+      _iconScalePercent = prefs.getDouble('icon_scale_percent') ?? 0.0;
+    });
+  }
+
+  Future<void> _saveFontIconSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble('font_scale_percent', _fontScalePercent);
+    await prefs.setDouble('icon_scale_percent', _iconScalePercent);
   }
 
   @override
@@ -80,7 +98,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _initializeMaterialControllers() {
-    // تنظيف المتحكمات القديمة
     final currentKeys = _itemControllers.keys.toList();
     for (var key in currentKeys) {
       if (!_materialsWithNumbers.values.contains(key) &&
@@ -91,8 +108,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _itemFocusNodes.remove(key);
       }
     }
-
-    // إضافة متحكمات جديدة للمواد
     _materialsWithNumbers.forEach((id, name) {
       if (!_itemControllers.containsKey(name)) {
         _itemControllers[name] = TextEditingController(text: name);
@@ -107,7 +122,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _initializePackagingControllers() {
-    // إضافة متحكمات جديدة للعبوات
     _packagingsWithNumbers.forEach((id, name) {
       if (!_itemControllers.containsKey(name)) {
         _itemControllers[name] = TextEditingController(text: name);
@@ -421,11 +435,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  // دالة عرض نافذة تغيير اسم المتجر
-// دالة عرض نافذة تغيير اسم المتجر
   void _showChangeStoreNameDialog() {
-    final storeNameCtrl =
-        TextEditingController(); // تغيير: إزالة النص الافتراضي
+    final storeNameCtrl = TextEditingController();
     final storeNameFocus = FocusNode();
     String? dialogError;
 
@@ -451,7 +462,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     backgroundColor: Colors.green,
                   ),
                 );
-                // تحديث اسم المتجر في الواجهة
                 setState(() {});
               }
             }
@@ -486,7 +496,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         onSubmitted: (_) => doChange(),
                         decoration: InputDecoration(
                           labelText: 'اسم المتجر الجديد',
-                          hintText: 'أدخل اسم المتجر الجديد', // إضافة hint text
+                          hintText: 'أدخل اسم المتجر الجديد',
                           prefixIcon: const Icon(Icons.store),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
@@ -549,6 +559,150 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  // نافذة إعدادات حجم الخط والأيقونة
+  void _showFontIconSettingsDialog() {
+    double tempFontPercent = _fontScalePercent;
+    double tempIconPercent = _iconScalePercent;
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            return Directionality(
+              textDirection: TextDirection.rtl,
+              child: AlertDialog(
+                titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+                contentPadding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
+                title: Row(
+                  children: [
+                    Icon(Icons.text_fields, color: Colors.teal[700], size: 28),
+                    const SizedBox(width: 12),
+                    const Text(
+                      'حجم الخطوط والأيقونات',
+                      style:
+                          TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+                content: SizedBox(
+                  width: MediaQuery.of(context).size.width * 0.8,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // سلايدر الخطوط
+                      Row(
+                        children: [
+                          Icon(Icons.format_size, color: Colors.teal[700]),
+                          const SizedBox(width: 8),
+                          Text('الخطوط:',
+                              style: TextStyle(
+                                  fontSize: 16, fontWeight: FontWeight.bold)),
+                          const Spacer(),
+                          Text('${(tempFontPercent * 100).toInt()}%',
+                              style: const TextStyle(fontSize: 16)),
+                        ],
+                      ),
+                      Slider(
+                        value: tempFontPercent,
+                        min: 0,
+                        max: 0.6, // ✅ تغيير الحد الأقصى إلى 60%
+                        divisions: 12, // 12 قسمة (0%, 5%, 10%, ... 60%)
+                        label: '${(tempFontPercent * 100).toInt()}%',
+                        onChanged: (val) =>
+                            setDialogState(() => tempFontPercent = val),
+                        activeColor: Colors.teal,
+                      ),
+                      const SizedBox(height: 16),
+                      // سلايدر الأيقونات
+                      Row(
+                        children: [
+                          Icon(Icons.grid_on, color: Colors.teal[700]),
+                          const SizedBox(width: 8),
+                          Text('الأيقونات:',
+                              style: TextStyle(
+                                  fontSize: 16, fontWeight: FontWeight.bold)),
+                          const Spacer(),
+                          Text('${(tempIconPercent * 100).toInt()}%',
+                              style: const TextStyle(fontSize: 16)),
+                        ],
+                      ),
+                      Slider(
+                        value: tempIconPercent,
+                        min: 0,
+                        max: 0.6, // ✅ تغيير الحد الأقصى إلى 60%
+                        divisions: 12, // 12 قسمة (0%, 5%, 10%, ... 60%)
+                        label: '${(tempIconPercent * 100).toInt()}%',
+                        onChanged: (val) =>
+                            setDialogState(() => tempIconPercent = val),
+                        activeColor: Colors.teal,
+                      ),
+                      const SizedBox(height: 16),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[100],
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Column(
+                          children: [
+                            const Text('معاينة:',
+                                style: TextStyle(fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 8),
+                            Text(
+                              'نص تجريبي بحجم جديد',
+                              style: TextStyle(
+                                fontSize: 14 * (1 + tempFontPercent),
+                                fontWeight: FontWeight.normal,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Icon(Icons.android,
+                                size: 24 * (1 + tempIconPercent)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                actionsPadding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: const Text('إلغاء'),
+                  ),
+                  ElevatedButton(
+                    onPressed: () async {
+                      setState(() {
+                        _fontScalePercent = tempFontPercent;
+                        _iconScalePercent = tempIconPercent;
+                      });
+                      await _saveFontIconSettings();
+                      Navigator.pop(ctx);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                              '✅ تم حفظ الإعدادات. أعد تشغيل التطبيق لتطبيق التغييرات.'),
+                          backgroundColor: Colors.green,
+                          duration: Duration(seconds: 3),
+                        ),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.teal,
+                      foregroundColor: Colors.white,
+                    ),
+                    child: const Text('حفظ وإعادة التشغيل لاحقاً'),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   Widget _buildMainButtons() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -572,8 +726,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
         }),
         _buildIndexButton(
             'تغيير كلمة المرور', Icons.lock_reset, _showChangePasswordDialog),
-        _buildIndexButton('تغيير اسم المتجر', Icons.store,
-            _showChangeStoreNameDialog), // الزر الرابع
+        _buildIndexButton(
+            'تغيير اسم المتجر', Icons.store, _showChangeStoreNameDialog),
+        // الزر الخامس الجديد
+        _buildIndexButton('حجم الخطوط والأيقونات', Icons.text_fields,
+            _showFontIconSettingsDialog),
       ],
     );
   }
@@ -660,7 +817,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // رأس القائمة
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             textDirection: TextDirection.rtl,
@@ -697,8 +853,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ],
           ),
-
-          // حقل الإضافة
           if (_isAddingNewItem) ...[
             const SizedBox(height: 15),
             Container(
@@ -736,8 +890,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             const SizedBox(height: 15),
           ],
-
-          // رأس الجدول
           Container(
             decoration: BoxDecoration(
               color: Colors.white.withOpacity(0.15),
@@ -754,8 +906,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
           const Divider(color: Colors.white70, thickness: 1),
-
-          // عرض الرسالة إذا كانت القائمة فارغة
           if (sortedEntries.isEmpty && !_isAddingNewItem)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 30),
@@ -775,8 +925,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ],
               ),
             ),
-
-          // عرض البيانات
           if (sortedEntries.isNotEmpty)
             ...sortedEntries.map((entry) {
               final id = entry.key;

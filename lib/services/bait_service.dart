@@ -7,10 +7,8 @@ class BaitService {
   final SalesStorageService _salesService = SalesStorageService();
 
   Future<List<BaitData>> getBaitDataForDate(String date) async {
-    // استخدام خريطة لتجميع البيانات حسب اسم المادة لتجنب التكرار
     final Map<String, BaitData> materialSummary = {};
 
-    // 2. تحميل وتجميع بيانات المشتريات
     final purchaseDoc = await _purchaseService.loadPurchaseDocument(date);
     if (purchaseDoc != null) {
       for (var purchase in purchaseDoc.purchases) {
@@ -24,7 +22,6 @@ class BaitService {
       }
     }
 
-    // 3. تحميل وتجميع بيانات المبيعات
     final salesDoc = await _salesService.loadSalesDocument(date);
     if (salesDoc != null) {
       for (var sale in salesDoc.sales) {
@@ -38,10 +35,31 @@ class BaitService {
       }
     }
 
-    // تحويل الخريطة إلى قائمة وترتيبها أبجدياً حسب اسم المادة
     final result = materialSummary.values.toList();
     result.sort((a, b) => a.materialName.compareTo(b.materialName));
+    return result;
+  }
 
+  Future<List<BaitData>> getBaitDataForDateRange(
+      DateTime fromDate, DateTime toDate) async {
+    final Map<String, BaitData> aggregated = {};
+
+    int daysDiff = toDate.difference(fromDate).inDays;
+    for (int i = 0; i <= daysDiff; i++) {
+      final currentDate = fromDate.add(Duration(days: i));
+      final dateString =
+          '${currentDate.year}/${currentDate.month}/${currentDate.day}';
+      final dailyData = await getBaitDataForDate(dateString);
+      for (var item in dailyData) {
+        aggregated.putIfAbsent(
+            item.materialName, () => BaitData(materialName: item.materialName));
+        aggregated[item.materialName]!.purchasesCount += item.purchasesCount;
+        aggregated[item.materialName]!.salesCount += item.salesCount;
+      }
+    }
+
+    final result = aggregated.values.toList();
+    result.sort((a, b) => a.materialName.compareTo(b.materialName));
     return result;
   }
 }
