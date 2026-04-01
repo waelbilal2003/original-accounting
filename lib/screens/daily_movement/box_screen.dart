@@ -1630,7 +1630,12 @@ class _BoxScreenState extends State<BoxScreen> {
     final String type = accountTypeValues[rowIndex];
     final String name = rowControllers[rowIndex][2].text.trim();
 
-    // في حال تم حذف الاسم، قم بإخفاء شريط الرصيد
+    // القيم الحالية للصف الذي نعمل عليه (آخر عملية إدخال)
+    final double currentReceived =
+        double.tryParse(rowControllers[rowIndex][0].text) ?? 0; // مقبوض
+    final double currentPaid =
+        double.tryParse(rowControllers[rowIndex][1].text) ?? 0; // مدفوع
+
     if (name.isEmpty) {
       if (mounted) {
         setState(() {
@@ -1643,7 +1648,7 @@ class _BoxScreenState extends State<BoxScreen> {
     }
 
     try {
-      // 1. جلب الرصيد الحقيقي من الملفات (قبل أي تغييرات على هذه الشاشة)
+      // جلب الرصيد الحقيقي مباشرة من الفهرس - بدون أي حسابات تراكمية
       double realBalance = 0;
 
       if (type == 'زبون') {
@@ -1657,41 +1662,26 @@ class _BoxScreenState extends State<BoxScreen> {
         final supplierData = await _supplierIndexService.getSupplierData(name);
         realBalance = supplierData?.balance ?? 0.0;
       } else {
-        return; // ليس زبون أو مورد، لا يوجد رصيد لعرضه
+        // نوع الحساب "مصروف" - لا نعرض رصيداً
+        return;
       }
 
-      // 2. *** الحل: *** تجميع كل العمليات لنفس الحساب من الشاشة الحالية
-      double totalReceivedOnScreen = 0.0;
-      double totalPaidOnScreen = 0.0;
-
-      for (int i = 0; i < rowControllers.length; i++) {
-        // التحقق من أن الصف يخص نفس الحساب (نفس الاسم ونفس النوع)
-        if (accountTypeValues[i] == type &&
-            rowControllers[i][2].text.trim().toLowerCase() ==
-                name.toLowerCase()) {
-          totalReceivedOnScreen +=
-              double.tryParse(rowControllers[i][0].text) ?? 0; // مقبوض
-          totalPaidOnScreen +=
-              double.tryParse(rowControllers[i][1].text) ?? 0; // مدفوع
-        }
-      }
-
-      // 3. حساب الرصيد المتبقي الجديد بناءً على المجموع
+      // حساب الباقي بناءً على آخر عملية إدخال فقط + الرصيد الحقيقي
       double remaining = 0;
 
       if (type == 'زبون') {
-        // معادلة الزبون: الرصيد الحقيقي - مجموع المقبوض + مجموع المدفوع (دين جديد)
-        remaining = realBalance - totalReceivedOnScreen + totalPaidOnScreen;
+        // معادلة الزبون: الرصيد الحقيقي - مقبوض (سدد) + مدفوع (دين جديد)
+        remaining = realBalance - currentReceived + currentPaid;
       } else if (type == 'مورد') {
-        // معادلة المورد: الرصيد الحقيقي + مجموع المقبوض (دين علينا) - مجموع المدفوع
-        remaining = realBalance + totalReceivedOnScreen - totalPaidOnScreen;
+        // معادلة المورد: الرصيد الحقيقي + مقبوض (دين علينا) - مدفوع (سداد منا)
+        remaining = realBalance + currentReceived - currentPaid;
       }
 
-      // 4. تحديث الواجهة بالبيانات الصحيحة
       if (mounted) {
         setState(() {
-          _lastFetchedBalance = realBalance; // الرصيد قبل التغييرات
-          _calculatedRemaining = remaining; // الباقي المتوقع بعد كل التغييرات
+          _lastFetchedBalance = realBalance; // الرصيد الحقيقي من الفهرس
+          _calculatedRemaining =
+              remaining; // الباقي = آخر عملية + الرصيد الحقيقي
           _lastAccountName = name;
         });
       }
